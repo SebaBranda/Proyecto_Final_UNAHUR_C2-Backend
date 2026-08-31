@@ -29,3 +29,10 @@ res.send('API de GalacticApp funcionando correctamente');
 app.listen(PORT, () => {
 console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
+
+app.get('/api/ping', (req, res) => {
+  res.json({ 
+    status: 'success', 
+    mensaje: '¡Comunicación exitosa desde el Backend de GalacticApp!' 
+  });
+});
