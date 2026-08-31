@@ -32,7 +32,98 @@ Antes de comenzar, asegúrate de tener instalado:
    - Crear un archivo `.env` en la raíz del proyecto
    - Completar las variables requeridas (ver sección de Configuración)
 
-## ⚙️ Configuración
+## Instalación con Docker
+
+### Requisitos Previos para Docker
+
+- **Docker** (v20.10 o superior)
+- **Docker Compose** (v2.0 o superior)
+
+### Pasos para ejecutar con Docker
+
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/SebaBranda/Proyecto_Final_UNAHUR_C2-Backend.git
+   cd Proyecto_Final_UNAHUR_C2-Backend
+   ```
+
+2. **Crear archivo `.env` (opcional):**
+   ```bash
+   cp .env.example .env
+   ```
+   Edita el archivo `.env` si deseas cambiar las credenciales de MongoDB u otros parámetros.
+
+3. **Levantar los servicios:**
+   ```bash
+   docker-compose up -d
+   ```
+   Este comando:
+   - Construye la imagen Docker del backend
+   - Inicia un contenedor de MongoDB
+   - Inicia el servidor del backend
+   - Ambos servicios se conectan automáticamente
+
+4. **Verificar que está corriendo:**
+   ```bash
+   docker-compose ps
+   ```
+
+5. **Ver logs de la aplicación:**
+   ```bash
+   docker-compose logs -f backend
+   ```
+
+6. **Detener los servicios:**
+   ```bash
+   docker-compose down
+   ```
+
+### Comandos útiles de Docker
+
+```bash
+# Ver logs de MongoDB
+docker-compose logs mongodb
+
+# Entrar a la shell del backend
+docker-compose exec backend sh
+
+# Reconstruir la imagen
+docker-compose build --no-cache
+
+# Eliminar volúmenes (CUIDADO: borra datos de MongoDB)
+docker-compose down -v
+
+# Ejecutar un comando específico
+docker-compose exec backend npm run dev
+```
+
+### Acceso a MongoDB desde Docker
+
+- **Host:** mongodb
+- **Puerto:** 27017
+- **Usuario:** admin (por defecto)
+- **Contraseña:** password (por defecto)
+- **Base de datos:** galacticapp_db
+
+Para conectarte desde fuera del contenedor:
+```
+mongodb://admin:password@localhost:27017/galacticapp_db
+```
+
+### Despliegue en Producción con Docker
+
+Para producción, utiliza:
+```bash
+docker-compose -f docker-compose.yml up -d
+```
+
+Asegúrate de:
+- Cambiar las credenciales de MongoDB en `.env`
+- Usar variables de entorno seguras
+- Configurar HTTPS/SSL si es necesario
+- Usar un reverse proxy como Nginx
+
+## Configuración
 
 ### Variables de Entorno
 
