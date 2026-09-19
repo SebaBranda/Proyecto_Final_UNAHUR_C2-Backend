@@ -5,7 +5,9 @@
   "main": "index.js",
   "type": "module", 
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "check": "node --check index.js && node --check src/app.js && node --check src/config/database.js && node --check src/controllers/resources.controller.js && node --check src/models/schemas.js && node --check src/routes/resources.routes.js"
   },
   "repository": {
     "type": "git",

@@ -22,6 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copiar el código de la aplicación
 COPY index.js .
+COPY src ./src
 COPY .env* ./
 
 # Crear usuario no-root por seguridad

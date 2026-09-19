@@ -1,38 +1,21 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
 import dotenv from 'dotenv';
+import { crearAplicacion } from './src/app.js';
+import { conectarBaseDeDatos } from './src/config/database.js';
 
 dotenv.config();
 
-const app = express();
-
-// Middlewares
-app.use(cors());
-app.use(express.json()); // Permite recibir JSON en los endpoints
-
-// Configuración de puertos y base de datos
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI ||'mongodb://localhost:27017/galacticapp_db';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/galacticapp_db';
+const app = crearAplicacion();
 
-// Conexión a MongoDB
-mongoose.connect(MONGO_URI)
-.then(() => console.log('Conectado exitosamente a MongoDB'))
-.catch((error) => console.error('Error conectando a MongoDB:', error));
+async function iniciarServidor() {
+  try {
+    await conectarBaseDeDatos(MONGO_URI);
+    app.listen(PORT, () => console.log(`Servidor escuchando en el puerto ${PORT}`));
+  } catch (error) {
+    console.error('Error conectando a MongoDB:', error);
+    process.exitCode = 1;
+  }
+}
 
-// Ruta de prueba
-app.get('/', (req, res) => {
-res.send('API de GalacticApp funcionando correctamente');
-});
-
-// Iniciar servidor
-app.listen(PORT, () => {
-console.log(`Servidor escuchando en el puerto ${PORT}`);
-});
-
-app.get('/api/ping', (req, res) => {
-  res.json({ 
-    status: 'success', 
-    mensaje: '¡Comunicación exitosa desde el Backend de GalacticApp!' 
-  });
-});
+iniciarServidor();

@@ -162,11 +162,17 @@ npm start
 
 ```
 .
-├── index.js                 # Archivo principal
-├── package.json            # Dependencias y scripts
-├── .env                    # Variables de entorno (no versionado)
-├── .gitignore             # Archivos ignorados por git
-└── README.md              # Este archivo
+├── index.js                         # Arranque del servidor
+├── src/
+│   ├── app.js                        # Configuracion de Express y middlewares
+│   ├── config/database.js             # Conexion a MongoDB
+│   ├── controllers/                  # Logica de endpoints
+│   ├── models/schemas.js              # Schemas Mongoose
+│   └── routes/resources.routes.js     # Rutas HTTP de la API
+├── package.json                      # Dependencias y scripts
+├── .env                              # Variables de entorno (no versionado)
+├── .gitignore                        # Archivos ignorados por git
+└── README.md                         # Este archivo
 ```
 
 ## Dependencias Principales
@@ -189,6 +195,26 @@ GET http://localhost:3000/
 ```
 API de GalacticApp funcionando correctamente
 ```
+
+### Recursos disponibles
+
+La API base se encuentra bajo `/api` y actualmente expone:
+
+```text
+GET    /api/usuarios
+GET    /api/clientes
+GET    /api/vehiculos
+GET    /api/reclamos
+POST   /api/reclamos
+PATCH  /api/reclamos/:id/asignacion
+PATCH  /api/reclamos/:id/estado
+GET    /api/ubicaciones-tecnicos
+GET    /api/jornadas
+POST   /api/jornadas
+PATCH  /api/jornadas/:id/finalizar
+```
+
+El comando `npm run check` valida la sintaxis de todo el scaffolding sin requerir una instancia activa de MongoDB.
 
 ## Configuración de CORS
 
