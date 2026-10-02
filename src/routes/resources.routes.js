@@ -7,21 +7,20 @@ import {
   finalizarJornada,
   listar,
 } from '../controllers/resources.controller.js';
+import { usuariosCrud } from '../controllers/usuarios.controller.js';
+import { tecnicosCrud } from '../controllers/tecnicos.controller.js';
 
 const router = Router();
 
-router.get('/usuarios', (req, res, next) => listar('usuarios', req, res, next));
-router.get('/clientes', (req, res, next) => listar('clientes', req, res, next));
-router.get('/vehiculos', (req, res, next) => listar('vehiculos', req, res, next));
-router.get('/reclamos', (req, res, next) => listar('reclamos', req, res, next));
-router.get('/ubicaciones-tecnicos', (req, res, next) => listar('ubicaciones-tecnicos', req, res, next));
-router.get('/jornadas', (req, res, next) => listar('jornadas', req, res, next));
-
-router.post('/reclamos', crearReclamo);
-router.patch('/reclamos/:id/asignacion', actualizarAsignacion);
-router.patch('/reclamos/:id/estado', actualizarEstado);
-
-router.post('/jornadas', crearJornada);
-router.patch('/jornadas/:id/finalizar', finalizarJornada);
+router.get('/usuarios', usuariosCrud.listar);
+router.get('/usuarios/:id', usuariosCrud.obtener);
+router.post('/usuarios', usuariosCrud.crear);
+router.put('/usuarios/:id', usuariosCrud.actualizar);
+router.delete('/usuarios/:id', usuariosCrud.eliminar);
+router.get('/tecnicos', tecnicosCrud.listar);
+router.get('/tecnicos/:id', tecnicosCrud.obtener);
+router.post('/tecnicos', tecnicosCrud.crear);
+router.put('/tecnicos/:id', tecnicosCrud.actualizar);
+router.delete('/tecnicos/:id', tecnicosCrud.eliminar);
 
 export default router;

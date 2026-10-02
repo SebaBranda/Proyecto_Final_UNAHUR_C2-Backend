@@ -24,9 +24,19 @@ export function crearAplicacion() {
   });
 
   app.use((error, _req, res, _next) => {
-    const estado = error instanceof mongoose.Error.ValidationError ? 400 : 500;
+    const esJsonInvalido = error instanceof SyntaxError && error.status === 400 && 'body' in error;
+    const esValidacionMongoose = error instanceof mongoose.Error.ValidationError;
+    const esDuplicado = error.code === 'DUPLICATE_USERNAME' || error.code === 11000;
+    const estado = esJsonInvalido || esValidacionMongoose || esDuplicado ? 400 : 500;
     console.error(error);
-    res.status(estado).json({ mensaje: estado === 400 ? 'Datos inválidos' : 'Error interno del servidor' });
+    const mensaje = esJsonInvalido
+      ? 'JSON inválido'
+      : esDuplicado
+        ? 'El nombre de usuario ya existe'
+        : estado === 400
+          ? 'Datos inválidos'
+          : 'Error interno del servidor';
+    res.status(estado).json({ mensaje });
   });
 
   return app;

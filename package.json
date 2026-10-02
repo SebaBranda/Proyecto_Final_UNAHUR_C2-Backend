@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "check": "node --check index.js && node --check src/app.js && node --check src/config/database.js && node --check src/controllers/resources.controller.js && node --check src/models/schemas.js && node --check src/routes/resources.routes.js"
+    "check": "node --check index.js && node --check src/app.js && node --check src/config/database.js && node --check src/controllers/resources.controller.js && node --check src/controllers/crud.controller.js && node --check src/controllers/usuarios.controller.js && node --check src/controllers/tecnicos.controller.js && node --check src/models/schemas.js && node --check src/routes/resources.routes.js && node --check src/data/store.js && node --check src/repositories/usuarios.memory.repository.js && node --check src/repositories/usuarios.repository.js"
   },
   "repository": {
     "type": "git",
