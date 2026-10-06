@@ -17,6 +17,11 @@ export class UsuariosMemoryRepository {
     return usuario ? { ...usuario } : null;
   }
 
+  async buscarCredencialesPorUsuario(nombreUsuario) {
+    const usuario = this.usuarios.find((registro) => registro.usuario === nombreUsuario);
+    return usuario ? { ...usuario } : null;
+  }
+
   async existeNombreUsuario(nombreUsuario, excluirId) {
     return this.usuarios.some((usuario) => (
       usuario.usuario === nombreUsuario && usuario.id !== excluirId
