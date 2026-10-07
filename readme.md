@@ -131,7 +131,11 @@ Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
 ```env
 # Puerto del servidor
-PORT=3000
+HTTPS_PORT=3000
+
+# Certificado HTTPS local autofirmado (se genera automáticamente)
+HTTPS_KEY_PATH=certs/localhost.key
+HTTPS_CERT_PATH=certs/localhost.crt
 
 # URI de conexión a MongoDB
 MONGO_URI=mongodb://localhost:27017/galacticapp_db
@@ -139,6 +143,30 @@ MONGO_URI=mongodb://localhost:27017/galacticapp_db
 # Secreto aleatorio de al menos 32 bytes para firmar JWT
 JWT_SECRET=poner_un_secreto_aleatorio_local
 ```
+
+El servidor inicia por HTTPS en `https://localhost:3000`. En Postman, para usar
+el certificado autofirmado de desarrollo, desactivar temporalmente **Settings >
+General > SSL certificate verification**. Las operaciones `GET` devuelven datos
+sanitizados; `POST`, `PUT`, `PATCH` y `DELETE` devuelven mensajes de confirmación
+y no exponen los registros almacenados.
+
+### Roles disponibles
+
+Todos los endpoints de recursos requieren un token `Bearer` obtenido mediante
+`POST /api/auth/login`. Los roles se conservan como datos normalizados para
+futuras restricciones, pero actualmente no limitan el acceso a las rutas.
+
+| Rol | Alcance |
+|---|---|
+| `Administrador` (`rolId: 1`) | Rol disponible, sin restricciones activas. |
+| `Coordinador` (`rolId: 2`) | Rol disponible, sin restricciones activas. |
+| `Tecnico` (`rolId: 3`) | Rol disponible, sin restricciones activas. |
+
+La autorización por rol queda fuera del alcance por ahora: no existe el endpoint
+`GET /api/roles` ni se aplican restricciones de rol sobre los endpoints de
+recursos. Las rutas siguen requiriendo un token `Bearer`. Al crear o actualizar
+un usuario se debe enviar `rolId` como número (`1`, `2` o `3`); el nombre del rol
+no se almacena en el usuario.
 
 ### Conexión a MongoDB
 
@@ -221,7 +249,7 @@ GET http://localhost:3000/
 
 2. En Postman crea una request, selecciona el método y URL de los ejemplos siguientes. Para requests con cuerpo, elige **Body → raw → JSON**.
 
-3. Usa `http://localhost:3000` como base URL. Las rutas `/api/...` no requieren token todavía: el login emite JWT, pero los demás endpoints aún no lo validan.
+3. Usa `https://localhost:3000` como base URL, desactiva la verificación SSL de Postman para el certificado local y envía el JWT como `Authorization: Bearer <token>`.
 
 #### Resumen de endpoints activos
 
@@ -314,12 +342,14 @@ Content-Type: application/json
   "usuario": "usuario.postman",
   "contrasena": "claveDePrueba",
   "nombre": "Usuario Postman",
-  "rol": "Coordinador",
+  "rolId": 2,
   "activo": true
 }
 ```
 
-Los roles permitidos son `Administrador`, `Coordinador` y `Tecnico`. El campo `contrasena` se convierte a hash antes de guardarse; ni contraseña ni hash se incluyen en la respuesta.
+Los roles permitidos son `rolId: 1` (`Administrador`), `rolId: 2`
+(`Coordinador`) y `rolId: 3` (`Tecnico`). El campo `contrasena` se convierte a
+hash antes de guardarse; ni contraseña ni hash se incluyen en la respuesta.
 
 Actualizar datos (`PATCH` o `PUT`; ambos aceptan campos parciales):
 
@@ -344,7 +374,8 @@ DELETE http://localhost:3000/api/usuarios/10
 
 #### Técnicos
 
-Los técnicos se guardan como usuarios con rol `Tecnico`; al crear no hace falta enviar el rol:
+Los técnicos se guardan como usuarios con `rolId: 3`; al crear no hace falta
+enviar el rol porque el endpoint lo asigna automáticamente:
 
 ```http
 GET http://localhost:3000/api/tecnicos

@@ -4,15 +4,15 @@ export class UsuariosMemoryRepository {
     this.siguienteId = Math.max(0, ...this.usuarios.map((usuario) => usuario.id)) + 1;
   }
 
-  async listar({ rol, usuario } = {}) {
+  async listar({ rolId, usuario } = {}) {
     return this.usuarios
-      .filter((registro) => (!rol || registro.rol === rol) && (!usuario || registro.usuario === usuario))
+      .filter((registro) => (!rolId || registro.rolId === rolId) && (!usuario || registro.usuario === usuario))
       .map((registro) => ({ ...registro }));
   }
 
-  async buscarPorId(id, { rol } = {}) {
+  async buscarPorId(id, { rolId } = {}) {
     const usuario = this.usuarios.find((registro) => (
-      registro.id === id && (!rol || registro.rol === rol)
+      registro.id === id && (!rolId || registro.rolId === rolId)
     ));
     return usuario ? { ...usuario } : null;
   }
@@ -28,23 +28,23 @@ export class UsuariosMemoryRepository {
     ));
   }
 
-  async crear(datos, { rol } = {}) {
+  async crear(datos, { rolId } = {}) {
     if (this.usuarios.some((usuario) => usuario.usuario === datos.usuario)) {
       throw crearErrorNombreDuplicado();
     }
 
     const usuario = {
       ...datos,
-      ...(rol ? { rol } : {}),
+      ...(rolId ? { rolId } : {}),
       id: this.siguienteId++,
     };
     this.usuarios.push(usuario);
     return { ...usuario };
   }
 
-  async actualizar(id, cambios, { rol } = {}) {
+  async actualizar(id, cambios, { rolId } = {}) {
     const indice = this.usuarios.findIndex((usuario) => (
-      usuario.id === id && (!rol || usuario.rol === rol)
+      usuario.id === id && (!rolId || usuario.rolId === rolId)
     ));
     if (indice === -1) return null;
 
@@ -55,16 +55,16 @@ export class UsuariosMemoryRepository {
     const actualizado = {
       ...this.usuarios[indice],
       ...cambios,
-      ...(rol ? { rol } : {}),
+      ...(rolId ? { rolId } : {}),
       id,
     };
     this.usuarios[indice] = actualizado;
     return { ...actualizado };
   }
 
-  async eliminar(id, { rol } = {}) {
+  async eliminar(id, { rolId } = {}) {
     const indice = this.usuarios.findIndex((usuario) => (
-      usuario.id === id && (!rol || usuario.rol === rol)
+      usuario.id === id && (!rolId || usuario.rolId === rolId)
     ));
     if (indice === -1) return null;
     const [eliminado] = this.usuarios.splice(indice, 1);
