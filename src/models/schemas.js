@@ -5,10 +5,10 @@ const opcionesBase = { timestamps: true, strict: false };
 export const Usuario = mongoose.model('Usuario', new mongoose.Schema({
   usuario: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true, select: false },
-  nombre: { type: String, required: true },
+  nombre: { type: String, required: true, select: false },
   rol: { type: String, required: true },
   activo: { type: Boolean, default: true },
-}, opcionesBase));
+}, opcionesBase)); 
 
 export const Cliente = mongoose.model('Cliente', new mongoose.Schema({
   nombre: { type: String, required: true },

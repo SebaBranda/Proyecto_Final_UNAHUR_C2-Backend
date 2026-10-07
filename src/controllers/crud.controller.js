@@ -70,7 +70,7 @@ export function crearControladorCrud({
 
       const eliminado = await repository.eliminar(id, { rol });
       if (!eliminado) return res.status(404).json({ mensaje: `${nombre} no encontrado` });
-      return res.status(200).json(serializar(eliminado));
+      return res.status(200).json({ mensaje: `${id} eliminado correctamente` });
     },
   };
 
