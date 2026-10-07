@@ -1,10 +1,10 @@
 export const usuariosIniciales = [
-  { id: 1, usuario: 'admin', contrasena: 'admin', nombre: 'Ana Administradora', rol: 'Administrador', activo: true },
-  { id: 2, usuario: 'coordinador', contrasena: 'coordinador', nombre: 'Carlos', rol: 'Coordinador', activo: true },
+  { id: 1, usuario: 'admin', passwordHash: 'scrypt$v1$028ebe00d3363f4ea98efd8341c31f6a$a43d894a6143b0a879c8e0ca98f4d71206b276fe69c84f253bc6f9fbc2f3c96181c974f13710de832f08891f2f5532a21eeade8928078798f22daa94caf712ee', nombre: 'Ana Administradora', rol: 'Administrador', activo: true },
+  { id: 2, usuario: 'coordinador', passwordHash: 'scrypt$v1$9e77b7ac2273dbe1e2bc38aea4e0a9ce$fe109a35968e9b5fd56b64e152d76999f206779b22871ffbac2c6568daba023bef176e225f7cad0908016f397c210d94948ab898bcb3a70a9ed8a11d3f798b79', nombre: 'Carlos', rol: 'Coordinador', activo: true },
   {
     id: 3,
     usuario: 'tecnico',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$6a1926dc755419da066475cd28fa9f88$eca7da7c2a9509d794d439a7c28b5491e5f98a9b70a4491524e0b9d103015c3195f8c60429633efe225422a33aab4fcbc205208b40cb87aa3e3b2a860cb92895',
     nombre: 'Tomas',
     rol: 'Tecnico',
     activo: true,
@@ -18,7 +18,7 @@ export const usuariosIniciales = [
   {
     id: 4,
     usuario: 'tecnico.libre',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$79c45a97b8dd50cc0686bd8dce9f94c8$b5777ecae8a622b68d36b47114b78ab5d0bc2e0f015a8422726f7c2817ccc7c6ba55a1651d5463d893579c8d209c4ce169fb92e633b0abcf60bc4482b8ed8873',
     nombre: 'Sofia',
     rol: 'Tecnico',
     activo: true,
@@ -32,7 +32,7 @@ export const usuariosIniciales = [
   {
     id: 5,
     usuario: 'tecnico.moreno',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$c256fbc0894349d58bfd2afe1c34a511$715765885d19bbf07747cef413871d7e588d3cb7855175cdb5c10d1c37f10f047ece3df952b3796d6f91aed7517ced3df77669489c64e07b61d6634cd9ec0429',
     nombre: 'Martin',
     rol: 'Tecnico',
     activo: true,
@@ -46,7 +46,7 @@ export const usuariosIniciales = [
   {
     id: 6,
     usuario: 'tecnico.hurlingham',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$ed04e62599120c010228be1b59549a40$d75187602c6ebf05ef044f2b831e10d9135920dfeb9c3b2663f3df5fe94e2ebe4f6bb78099e7708eccf98488be40707279658176f7535425d4f935d53aea3fac',
     nombre: 'Carla',
     rol: 'Tecnico',
     activo: true,
@@ -60,7 +60,7 @@ export const usuariosIniciales = [
   {
     id: 7,
     usuario: 'tecnico.ramos',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$a160406a067474d4ff74c87c6440f467$77b8655ad8a55e13c92953f3101aa65369ebe2c9daa44f0bb8b18976b0ff120d13818e2dfadadfcf3065bb801fdf8f866b8690c493bf6739f606821299eff89f',
     nombre: 'Javier',
     rol: 'Tecnico',
     activo: true,
@@ -74,7 +74,7 @@ export const usuariosIniciales = [
   {
     id: 8,
     usuario: 'tecnico.haedo',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$4c64b66ab0b9044e7f9680280a4a2834$aa03a96089fe4bb59460ee695ecc31d4dba90d9650c4e18ce6918b903373630ab1866cd05f66e0e0e031e8f1e2235d93c0a148042ad5824605f9b51f1fe497c6',
     nombre: 'Valeria',
     rol: 'Tecnico',
     activo: true,
@@ -88,7 +88,7 @@ export const usuariosIniciales = [
   {
     id: 9,
     usuario: 'tecnico.ituz',
-    contrasena: 'tecnico',
+    passwordHash: 'scrypt$v1$19c051da06de43a10a09ea45730ee0ae$0954f1338343dd91180744b2819376d057d870e42ee53bfa488ad45cc6d4fa89edc45189b4f54a59ffef1b283718f5f2da80bc44ae409c5d2700b49136d638d9',
     nombre: 'Nicolas',
     rol: 'Tecnico',
     activo: true,

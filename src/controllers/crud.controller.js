@@ -4,13 +4,15 @@ export function crearControladorCrud({
   valoresPorDefecto = {},
   rol,
   normalizar = (registro) => registro,
+  preparar = (registro) => registro,
+  serializar = (registro) => registro,
   validar = () => null,
   nombre = 'Registro',
 }) {
   return {
     async listar(req, res) {
       const resultado = await repository.listar({ rol, usuario: req.query.usuario });
-      return res.status(200).json(resultado);
+      return res.status(200).json(resultado.map(serializar));
     },
 
     async obtener(req, res) {
@@ -21,7 +23,7 @@ export function crearControladorCrud({
 
       const registro = await repository.buscarPorId(id, { rol });
       if (!registro) return res.status(404).json({ mensaje: `${nombre} no encontrado` });
-      return res.status(200).json(registro);
+      return res.status(200).json(serializar(registro));
     },
 
     async crear(req, res) {
@@ -33,8 +35,9 @@ export function crearControladorCrud({
       const error = validarCampos(registro) || await validar(registro, null, repository);
       if (error) return res.status(400).json({ mensaje: error });
 
-      const creado = await repository.crear(registro, { rol });
-      return res.status(201).json(creado);
+      const preparado = await preparar(registro, null, req.body);
+      const creado = await repository.crear(preparado, { rol });
+      return res.status(201).json(serializar(creado));
     },
 
     async actualizar(req, res) {
@@ -53,9 +56,10 @@ export function crearControladorCrud({
       const error = validarCampos(actualizado) || await validar(actualizado, actual, repository);
       if (error) return res.status(400).json({ mensaje: error });
 
-      const guardado = await repository.actualizar(id, actualizado, { rol });
+      const preparado = await preparar(actualizado, actual, req.body);
+      const guardado = await repository.actualizar(id, preparado, { rol });
       if (!guardado) return res.status(404).json({ mensaje: `${nombre} no encontrado` });
-      return res.status(200).json(guardado);
+      return res.status(200).json(serializar(guardado));
     },
 
     async eliminar(req, res) {
@@ -66,7 +70,7 @@ export function crearControladorCrud({
 
       const eliminado = await repository.eliminar(id, { rol });
       if (!eliminado) return res.status(404).json({ mensaje: `${nombre} no encontrado` });
-      return res.status(200).json(eliminado);
+      return res.status(200).json({ mensaje: `${id} eliminado correctamente` });
     },
   };
 

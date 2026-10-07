@@ -1,18 +1,12 @@
 import { Router } from 'express';
-import {
-  actualizarAsignacion,
-  actualizarEstado,
-  crearJornada,
-  crearReclamo,
-  finalizarJornada,
-  listar,
-} from '../controllers/resources.controller.js';
 import { usuariosCrud } from '../controllers/usuarios.controller.js';
 import { tecnicosCrud } from '../controllers/tecnicos.controller.js';
 import { clientesCrud } from '../controllers/clientes.controller.js';
+import { iniciarSesion } from '../controllers/auth.controller.js';
 
 const router = Router();
 
+router.post('/auth/login', iniciarSesion);
 router.get('/usuarios', usuariosCrud.listar);
 router.get('/usuarios/:id', usuariosCrud.obtener);
 router.post('/usuarios', usuariosCrud.crear);
