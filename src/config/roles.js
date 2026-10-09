@@ -8,18 +8,17 @@ export const ROLES_DISPONIBLES = Object.freeze([
   Object.freeze({
     id: 1,
     nombre: ROLES.ADMIN,
-    permisos: ['usuarios:*', 'tecnicos:*', 'clientes:*', 'roles:leer'],
+    permisos: [],
   }),
   Object.freeze({
     id: 2,
     nombre: ROLES.COORDINADOR,
-    permisos: ['tecnicos:leer', 'tecnicos:crear', 'tecnicos:actualizar', 'tecnicos:eliminar',
-      'clientes:leer', 'clientes:crear', 'clientes:actualizar', 'clientes:eliminar'],
+    permisos: [],
   }),
   Object.freeze({
     id: 3,
     nombre: ROLES.TECNICO,
-    permisos: ['tecnicos:leer', 'clientes:leer'],
+    permisos: [],
   }),
 ]);
 

@@ -24,7 +24,10 @@ export const clientesService = {
     }
 
     const creado = await clientesRepository.crear({ ...cuerpo, activo: true });
-    return respuesta(201, 'Cliente creado correctamente');
+    return respuesta(201, {
+      mensaje: 'Cliente creado correctamente',
+      id: creado.id,
+    });
   },
 
   async actualizar(idParametro, cuerpo) {
@@ -45,7 +48,10 @@ export const clientesService = {
 
     const guardado = await clientesRepository.actualizar(id, actualizado);
     if (!guardado) return respuesta(404, { mensaje: 'Cliente no encontrado' });
-    return respuesta(200, 'Cliente actualizado correctamente');
+    return respuesta(200, {
+      mensaje: 'Cliente actualizado correctamente',
+      id,
+    });
   },
 
   async eliminar(idParametro) {
@@ -54,7 +60,10 @@ export const clientesService = {
 
     const eliminado = await clientesRepository.eliminar(id);
     if (!eliminado) return respuesta(404, { mensaje: 'Cliente no encontrado' });
-    return respuesta(200, 'Cliente eliminado correctamente');
+    return respuesta(200, {
+      mensaje: 'Cliente eliminado correctamente',
+      id,
+    });
   },
 };
 

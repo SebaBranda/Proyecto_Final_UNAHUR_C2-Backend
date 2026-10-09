@@ -1,0 +1,558 @@
+{
+  "info": {
+    "_postman_id": "7e96c906-526c-4e13-9bc1-2306bff7f3d1",
+    "name": "Pruebas",
+    "description": "Pruebas CRUD de usuarios, técnicos y clientes. Ejecutá AUTH USUARIO primero. Los GET por ID usan IDs semilla independientes; las variables usuarioId, tecnicoId y clienteId se actualizan con los IDs creados y se usan para editar/eliminar. El servidor local usa HTTPS con certificado autofirmado: desactivá SSL certificate verification en Postman para desarrollo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "usuarioId",
+      "value": "1"
+    },
+    {
+      "key": "tecnicoId",
+      "value": "3"
+    },
+    {
+      "key": "clienteId",
+      "value": "1"
+    },
+    {
+      "key": "usuarioConsultaId",
+      "value": "1"
+    },
+    {
+      "key": "tecnicoConsultaId",
+      "value": "3"
+    },
+    {
+      "key": "clienteConsultaId",
+      "value": "1"
+    },
+    {
+      "key": "clienteNombre",
+      "value": ""
+    },
+    {
+      "key": "clienteEmail",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "AUTH USUARIO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login exitoso', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('token', respuesta.token);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"admin\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "GET TODOS LOS USUARIOS",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Lista de usuarios responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET USUARIO POR ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioConsultaId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Usuario encontrado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.have.property('id');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET TODOS LOS TECNICOS",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/tecnicos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Lista de técnicos responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET TECNICO POR ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/tecnicos/{{tecnicoConsultaId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Técnico encontrado con perfil', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().perfil).to.be.an('object');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET TODOS LOS CLIENTES",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/clientes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Lista de clientes responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET CLIENTE POR ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/clientes/{{clienteConsultaId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Cliente encontrado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.have.property('id');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST CREAR USUARIO",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('usuarioPrueba', 'coord.postman.' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Usuario creado con identificador', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario creado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "  pm.collectionVariables.set('usuarioId', respuesta.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario\": \"{{usuarioPrueba}}\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"Coordinador Postman\",\n  \"rolId\": 2,\n  \"activo\": true,\n  \"perfil\": {\n    \"zonaAsignada\": \"Zona Norte\",\n    \"maxTecnicosACargo\": 8\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/usuarios"
+      }
+    },
+    {
+      "name": "POST CREAR TECNICO",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('tecnicoPrueba', 'tecnico.postman.' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Técnico creado con identificador', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario creado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "  pm.collectionVariables.set('tecnicoId', respuesta.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario\": \"{{tecnicoPrueba}}\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"Técnico Postman\",\n  \"rolId\": 3,\n  \"perfil\": {\n    \"documento\": \"40999888\",\n    \"fechaNacimiento\": \"1992-05-10\",\n    \"vencimientoRegistro\": \"2028-05-10\",\n    \"telefono\": \"11-4000-0000\",\n    \"email\": \"tecnico.postman@galactic.app\",\n    \"direccion\": \"Dirección de prueba 123\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/usuarios"
+      }
+    },
+    {
+      "name": "POST CREAR CLIENTE",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const marcaTiempo = Date.now();",
+              "pm.collectionVariables.set('clienteNombre', 'Cliente Postman ' + marcaTiempo);",
+              "pm.collectionVariables.set('clienteEmail', 'cliente.postman.' + marcaTiempo + '@example.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Cliente creado con identificador', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Cliente creado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "  pm.collectionVariables.set('clienteId', respuesta.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"{{clienteNombre}}\",\n  \"documento\": \"40999777\",\n  \"telefono\": \"11-4222-0000\",\n  \"email\": \"{{clienteEmail}}\",\n  \"direccion\": \"Dirección de prueba 456\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/clientes"
+      }
+    },
+    {
+      "name": "PUT EDITAR USUARIO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Usuario actualizado con respuesta segura', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario actualizado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Coordinador Postman actualizado\",\n  \"perfil\": {\n    \"zonaAsignada\": \"Zona Oeste\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+      }
+    },
+    {
+      "name": "PUT EDITAR TECNICO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Técnico actualizado con respuesta segura', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario actualizado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Técnico Postman actualizado\",\n  \"perfil\": {\n    \"telefono\": \"11-4111-2222\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+      }
+    },
+    {
+      "name": "PUT EDITAR CLIENTE",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Cliente actualizado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Cliente actualizado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telefono\": \"11-4999-1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+      }
+    },
+    {
+      "name": "DEL ELIMINAR USUARIO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Usuario eliminado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario eliminado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+      }
+    },
+    {
+      "name": "DEL ELIMINAR TECNICO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Técnico eliminado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Usuario eliminado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+      }
+    },
+    {
+      "name": "DEL ELIMINAR CLIENTE",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Cliente eliminado', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const respuesta = pm.response.json();",
+              "  pm.expect(respuesta.mensaje).to.eql('Cliente eliminado correctamente');",
+              "  pm.expect(respuesta.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+      }
+    }
+  ]
+}
