@@ -38,9 +38,19 @@ export const TecnicoProfile = mongoose.model('TecnicoProfile', new Schema({
 export const Cliente = mongoose.model('Cliente', new Schema({
   id: { type: Number, required: true, unique: true, index: true },
   nombre: { type: String, required: true },
+  documento: String,
   telefono: String,
+  email: String,
   direccion: String,
+  activo: { type: Boolean, default: true },
 }, opcionesBase));
+
+export const UbicacionTecnico = mongoose.model('UbicacionTecnico', new Schema({
+  tecnicoId: { type: Number, required: true, unique: true, index: true },
+  latitud: { type: Number, required: true, min: -90, max: 90 },
+  longitud: { type: Number, required: true, min: -180, max: 180 },
+  actualizadoEn: { type: Date, required: true, default: Date.now },
+}, { versionKey: false }));
 
 export const Rol = mongoose.model('Rol', new Schema({
   _id: { type: Number, required: true },

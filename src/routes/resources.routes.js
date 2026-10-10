@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { usuariosCrud, tecnicosCrud } from '../controllers/usuarios.controller.js';
 import { clientesCrud } from '../controllers/clientes.controller.js';
 import { iniciarSesion } from '../controllers/auth.controller.js';
+import { ubicacionesTecnicos } from '../controllers/ubicaciones.controller.js';
 import { autenticar } from '../middleware/auth.middleware.js';
 import { autorizarRoles } from '../middleware/authorize.middleware.js';
 
@@ -23,5 +24,7 @@ router.post('/clientes', clientesCrud.crear);
 router.put('/clientes/:id', clientesCrud.actualizar);
 router.patch('/clientes/:id', clientesCrud.actualizar);
 router.delete('/clientes/:id', clientesCrud.eliminar);
+router.get('/ubicaciones-tecnicos', ubicacionesTecnicos.listar);
+router.patch('/ubicaciones-tecnicos/:tecnicoId', ubicacionesTecnicos.actualizar);
 
 export default router;

@@ -274,6 +274,10 @@ GET http://localhost:3000/
 | `POST` | `/api/clientes` | Crear cliente |
 | `PUT`, `PATCH` | `/api/clientes/:id` | Actualizar cliente |
 | `DELETE` | `/api/clientes/:id` | Eliminar cliente |
+| `GET` | `/api/ubicaciones-tecnicos` | Consultar ubicaciones (admin/coordinador: todas; técnico: propia) |
+| `PATCH` | `/api/ubicaciones-tecnicos/:tecnicoId` | Guardar la ubicación propia del técnico autenticado |
+
+Las ubicaciones se guardan en la colección `ubicaciontecnicos` al recibirse la primera posición GPS. El técnico debe tener una jornada activa y permitir la geolocalización en el navegador; no se cargan coordenadas de ejemplo.
 
 #### Salud
 

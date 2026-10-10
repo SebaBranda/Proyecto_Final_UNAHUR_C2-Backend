@@ -18,6 +18,12 @@ export const tecnicosService = {
 };
 
 export function serializarUsuario(usuario) {
+  const definicionPerfil = obtenerDefinicionPerfil(usuario.rolId) ?? {};
+  const perfilPublico = Object.fromEntries(
+    Object.keys(definicionPerfil)
+      .filter((campo) => Object.hasOwn(usuario.perfil || {}, campo))
+      .map((campo) => [campo, usuario.perfil[campo]]),
+  );
   const mostrarContrasena = false; 
   if (mostrarContrasena) {
     const { contrasena, perfil = {}, ...datosPublicos } = usuario;
@@ -29,7 +35,7 @@ export function serializarUsuario(usuario) {
       rolId: datosPublicos.rolId,
       rol: rol?.nombre,
       activo: datosPublicos.activo,
-      perfil: { ...perfil },
+      perfil: perfilPublico,
       passwordHash: datosPublicos.passwordHash,
     };
   } else {
@@ -42,7 +48,7 @@ export function serializarUsuario(usuario) {
       rolId: datosPublicos.rolId,
       rol: rol?.nombre,
       activo: datosPublicos.activo,
-      perfil: { ...perfil },
+      perfil: perfilPublico,
     };
   }
 }
