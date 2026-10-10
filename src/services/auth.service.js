@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { verifyPassword } from './password.service.js';
 import { buscarRol } from '../config/roles.js';
+import { serializarUsuario } from './usuarios.service.js';
 
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
 const TOKEN_ISSUER = 'galacticapp-api';
@@ -39,6 +40,7 @@ export async function iniciarSesion({ usuario, contrasena } = {}) {
 
   return respuesta(200, {
     mensaje: 'Inicio de sesión correcto',
+    usuario: serializarUsuario(registro),
     token,
     tokenType: 'Bearer',
     expiresIn: TOKEN_LIFETIME_SECONDS,

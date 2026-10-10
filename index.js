@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { crearAplicacion } from './src/app.js';
 import { conectarBaseDeDatos } from './src/config/database.js';
+import { sembrarDatosIniciales } from './src/config/seed.js';
 import { generate } from 'selfsigned';
 
 dotenv.config();
@@ -13,16 +14,24 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/galacticap
 const app = crearAplicacion();
 
 async function iniciarServidor() {
-  const httpsOptions = await cargarCertificados();
-  https.createServer(httpsOptions, app).listen(PORT, () => {
-    console.log(`Servidor HTTPS escuchando en https://localhost:${PORT}`);
-  });
-
   try {
     await conectarBaseDeDatos(MONGO_URI);
+    await sembrarDatosIniciales();
   } catch (error) {
     console.warn('MongoDB no está disponible; el servidor continúa activo:', error.message);
   }
+
+  if (process.env.HTTPS_ENABLED === 'true') {
+    const httpsOptions = await cargarCertificados();
+    https.createServer(httpsOptions, app).listen(PORT, () => {
+      console.log(`Servidor HTTPS escuchando en https://localhost:${PORT}`);
+    });
+    return;
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor HTTP escuchando en http://localhost:${PORT}`);
+  });
 }
 
 iniciarServidor();

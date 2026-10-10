@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm ci
 
 # Stage 2: Production
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -19,6 +19,7 @@ RUN apk add --no-cache dumb-init
 
 # Copiar node_modules del stage anterior
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
 
 # Copiar el código de la aplicación
 COPY index.js .

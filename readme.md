@@ -4,7 +4,7 @@ Backend API del proyecto GalacticApp desarrollado para el Proyecto Final de UNaH
 
 ## Descripción
 
-Este es el servidor backend de GalacticApp, construido con **Express.js**. Actualmente los endpoints de usuarios, técnicos y clientes almacenan los datos en memoria. El proyecto incluye Mongoose y conexión a MongoDB, pero esas rutas todavía no usan MongoDB para guardar los datos.
+Este es el servidor backend de GalacticApp, construido con **Express.js**. Los endpoints de usuarios, técnicos y clientes utilizan MongoDB cuando la conexión está disponible y conservan un repositorio en memoria como fallback para desarrollo local.
 
 ## Requisitos Previos
 
@@ -41,41 +41,39 @@ Antes de comenzar, asegúrate de tener instalado:
 
 ### Pasos para ejecutar con Docker
 
-1. **Clonar el repositorio:**
+La configuración completa de frontend, backend y MongoDB está en el
+`docker-compose.yml` de la carpeta padre del proyecto. Ejecuta los comandos
+desde `Proyecto Final`:
+
+1. **Crear variables de entorno:**
    ```bash
-   git clone https://github.com/SebaBranda/Proyecto_Final_UNAHUR_C2-Backend.git
-   cd Proyecto_Final_UNAHUR_C2-Backend
+   copy .env.example .env
    ```
 
-2. **Crear archivo `.env` (opcional):**
+2. **Levantar los servicios:**
    ```bash
-   cp .env.example .env
-   ```
-   Edita el archivo `.env` si deseas cambiar las credenciales de MongoDB u otros parámetros.
-
-3. **Levantar los servicios:**
-   ```bash
-   docker-compose up -d
+   docker compose up -d --build
    ```
    Este comando:
-   - Construye la imagen Docker del backend
-   - Inicia un contenedor de MongoDB
-   - Inicia el servidor del backend
-   - Ambos servicios se conectan automáticamente
+   - Construye las imágenes del frontend y del backend.
+   - Inicia MongoDB con volúmenes persistentes.
+   - Carga los datos iniciales una sola vez.
+   - Publica la aplicación en `http://localhost:8080`.
+   - Envía internamente `/api` del frontend al backend.
 
 4. **Verificar que está corriendo:**
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
 
 5. **Ver logs de la aplicación:**
    ```bash
-   docker-compose logs -f backend
+   docker compose logs -f backend
    ```
 
 6. **Detener los servicios:**
    ```bash
-   docker-compose down
+   docker compose down
    ```
 
 ### Comandos útiles de Docker
@@ -170,12 +168,15 @@ no se almacena en el usuario.
 
 ### Conexión a MongoDB
 
-Al iniciar, el servidor intenta conectarse a MongoDB. La URI por defecto es:
+Al iniciar, el servidor se conecta a MongoDB y verifica los datos iniciales. La
+URI usada dentro de Docker tiene este formato:
 ```
-mongodb://localhost:27017/galacticapp_db
+mongodb://admin:password@mongodb:27017/galacticapp_db?authSource=admin
 ```
 
-La conexión no implica persistencia de los endpoints actuales: usuarios, técnicos y clientes siguen usando memoria. Para guardar sus cambios en MongoDB también habrá que reemplazar los repositorios en memoria por repositorios que usen Mongoose.
+Los cambios de usuarios, técnicos y clientes quedan persistidos en MongoDB.
+Los volúmenes `mongodb_data` y `mongodb_config` evitan perder la información al
+recrear los contenedores. `docker compose down -v` elimina esos datos.
 
 `JWT_SECRET` debe contener al menos 32 bytes aleatorios. Se puede generar localmente con:
 

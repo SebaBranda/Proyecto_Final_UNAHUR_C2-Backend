@@ -5,6 +5,7 @@ const opcionesBase = { timestamps: true, strict: false };
 const { Schema } = mongoose;
 
 export const Usuario = mongoose.model('Usuario', new Schema({
+  id: { type: Number, required: true, unique: true, index: true },
   usuario: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true, select: false },
   nombre: { type: String, required: true, select: false },
@@ -13,19 +14,19 @@ export const Usuario = mongoose.model('Usuario', new Schema({
 }, { timestamps: true }));
 
 export const AdminProfile = mongoose.model('AdminProfile', new Schema({
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true, unique: true },
+  usuarioId: { type: Number, ref: 'Usuario', required: true, unique: true },
   departamento: String,
   nivelAcceso: String,
 }, { timestamps: true }));
 
 export const CoordinadorProfile = mongoose.model('CoordinadorProfile', new Schema({
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true, unique: true },
+  usuarioId: { type: Number, ref: 'Usuario', required: true, unique: true },
   zonaAsignada: String,
   maxTecnicosACargo: Number,
 }, { timestamps: true }));
 
 export const TecnicoProfile = mongoose.model('TecnicoProfile', new Schema({
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true, unique: true },
+  usuarioId: { type: Number, ref: 'Usuario', required: true, unique: true },
   documento: String,
   fechaNacimiento: Date,
   vencimientoRegistro: Date,
@@ -35,6 +36,7 @@ export const TecnicoProfile = mongoose.model('TecnicoProfile', new Schema({
 }, { timestamps: true }));
 
 export const Cliente = mongoose.model('Cliente', new Schema({
+  id: { type: Number, required: true, unique: true, index: true },
   nombre: { type: String, required: true },
   telefono: String,
   direccion: String,
