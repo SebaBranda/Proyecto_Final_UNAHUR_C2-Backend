@@ -10,15 +10,22 @@ import { generate } from 'selfsigned';
 dotenv.config();
 
 const PORT = process.env.HTTPS_PORT || process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/galacticapp_db';
+const MONGO_URI = process.env.MONGO_URI;
 const app = crearAplicacion();
 
 async function iniciarServidor() {
+  if (!MONGO_URI) throw new Error('MONGO_URI debe configurarse');
   try {
     await conectarBaseDeDatos(MONGO_URI);
     await sembrarDatosIniciales();
   } catch (error) {
-    console.warn('MongoDB no está disponible; el servidor continúa activo:', error.message);
+    if (process.env.ALLOW_MEMORY_FALLBACK !== 'true') {
+      throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
+    }
+    console.warn(
+      'MongoDB no está disponible; se habilitó explícitamente el repositorio en memoria:',
+      error.message,
+    );
   }
 
   if (process.env.HTTPS_ENABLED === 'true') {
@@ -34,7 +41,10 @@ async function iniciarServidor() {
   });
 }
 
-iniciarServidor();
+iniciarServidor().catch((error) => {
+  console.error('No se pudo iniciar GalacticApp:', error);
+  process.exitCode = 1;
+});
 
 async function cargarCertificados() {
   const keyPath = path.resolve(process.env.HTTPS_KEY_PATH || 'certs/localhost.key');
@@ -45,7 +55,8 @@ async function cargarCertificados() {
       key: await fs.readFile(keyPath),
       cert: await fs.readFile(certPath),
     };
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') throw error;
     const atributos = [{ name: 'commonName', value: 'localhost' }];
     const certificado = await generate(atributos, {
       keySize: 2048,

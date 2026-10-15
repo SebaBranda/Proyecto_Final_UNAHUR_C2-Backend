@@ -57,3 +57,32 @@ export const Rol = mongoose.model('Rol', new Schema({
   nombre: { type: String, enum: Object.values(ROLES), required: true, unique: true },
   permisos: { type: [String], required: true, default: [] },
 }, opcionesBase));
+
+const recursoBase = { id: { type: Number, required: true, unique: true, index: true } };
+export const Vehiculo = mongoose.model('Vehiculo', new Schema({
+  ...recursoBase,
+  patente: { type: String, required: true },
+  tecnicoAsignado: { type: Number, ref: 'Usuario', default: null },
+  kilometraje: { type: Schema.Types.Mixed, default: {} },
+  seguro: { type: Schema.Types.Mixed, default: {} },
+  controles: { type: [Schema.Types.Mixed], default: [] },
+  fotosControl: { type: [String], default: [] },
+}, opcionesBase));
+
+export const Reclamo = mongoose.model('Reclamo', new Schema({
+  ...recursoBase,
+  clienteId: { type: Number, ref: 'Cliente', required: true, index: true },
+  tecnicoId: { type: Number, ref: 'Usuario', default: null, index: true },
+  estado: { type: String, default: 'Abierto' },
+  creadoEn: { type: Date, default: Date.now },
+}, opcionesBase));
+
+export const Jornada = mongoose.model('Jornada', new Schema({
+  ...recursoBase,
+  tecnicoId: { type: Number, ref: 'Usuario', required: true, index: true },
+  activa: { type: Boolean, default: true },
+  inicio: Date,
+  fin: Date,
+  controlInicial: Schema.Types.Mixed,
+  controlFinal: Schema.Types.Mixed,
+}, opcionesBase));

@@ -86,16 +86,27 @@ export async function prepararUsuarioParaGuardar(usuario, actual, cambios = {}) 
 
 function crearServicioUsuarios() {
   return {
-    async listar({ usuario, rolId } = {}) {
-      const registros = await usuariosRepository.listar({ usuario, rolId });
-      return respuesta(200, registros.map(serializarUsuario));
+    async listar({ usuario, rolId, usuarioAutenticado } = {}) {
+      const alcance = alcanceUsuarios(usuarioAutenticado);
+      const registros = await usuariosRepository.listar({
+        usuario,
+        rolId: rolId ?? alcance.rolId,
+      });
+      const visibles = alcance.id === undefined
+        ? registros
+        : registros.filter((registro) => registro.id === alcance.id);
+      return respuesta(200, visibles.map(serializarUsuario));
     },
 
-    async obtener(idParametro, { rolId } = {}) {
+    async obtener(idParametro, { rolId, usuarioAutenticado } = {}) {
       const id = convertirId(idParametro);
       if (id === null) return errorId();
 
-      const registro = await usuariosRepository.buscarPorId(id, { rolId });
+      const alcance = alcanceUsuarios(usuarioAutenticado);
+      if (alcance.id !== undefined && id !== alcance.id && alcance.rolId === 3) {
+        return respuesta(403, { mensaje: 'No tienes acceso a este usuario' });
+      }
+      const registro = await usuariosRepository.buscarPorId(id, { rolId: rolId ?? alcance.rolId });
       if (!registro) return respuesta(404, { mensaje: 'Usuario no encontrado' });
       return respuesta(200, serializarUsuario(registro));
     },
@@ -173,6 +184,12 @@ function crearServicioUsuarios() {
       });
     },
   };
+}
+
+function alcanceUsuarios(usuario) {
+  if (!usuario || usuario.rolId === 1) return {};
+  if (usuario.rolId === 2) return { rolId: 3 };
+  return { id: usuario.id, rolId: 3 };
 }
 
 function normalizarEntrada(cuerpo, actual, rolForzado) {

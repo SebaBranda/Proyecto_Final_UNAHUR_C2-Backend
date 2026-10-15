@@ -2,10 +2,10 @@ import { clientesService } from '../services/clientes.service.js';
 
 export const clientesCrud = {
   async listar(req, res) {
-    return responder(res, await clientesService.listar());
+    return responder(res, await clientesService.listar(req.usuarioAutenticado));
   },
   async obtener(req, res) {
-    return responder(res, await clientesService.obtener(req.params.id));
+    return responder(res, await clientesService.obtener(req.params.id, req.usuarioAutenticado));
   },
   async crear(req, res) {
     return responder(res, await clientesService.crear(req.body));

@@ -179,3 +179,21 @@ export const clientesIniciales = [
     zona: 'Haedo Centro',
   },
 ];
+
+export const vehiculosIniciales = [
+  { id: 1, patente: 'AB 123 CD', marca: 'Renault', modelo: 'Renault Kangoo', tecnicoAsignado: 3, kilometraje: { inicial: 45210, actual: 46840, final: null }, seguro: { compania: 'La Segunda', poliza: 'LS-45210', vence: '2027-04-30' }, ultimoService: '2026-07-18', detalle: 'Unidad utilitaria para visitas técnicas y traslado de herramientas.', fotosControl: [], disponible: true },
+  { id: 2, patente: 'AC 456 EF', marca: 'Fiat', modelo: 'Fiorino', tecnicoAsignado: 4, kilometraje: { inicial: 38120, actual: 39785, final: null }, seguro: { compania: 'Sancor Seguros', poliza: 'SC-38120', vence: '2027-01-15' }, ultimoService: '2026-08-02', detalle: 'Vehículo liviano para recorridos urbanos y atención de reclamos.', fotosControl: [], disponible: true },
+  { id: 3, patente: 'AD 789 GH', marca: 'Volkswagen', modelo: 'Saveiro', tecnicoAsignado: 5, kilometraje: { inicial: 52780, actual: 54120, final: null }, seguro: { compania: 'Federación Patronal', poliza: 'FP-52780', vence: '2026-12-20' }, ultimoService: '2026-06-11', detalle: 'Camioneta de apoyo para materiales y tareas en zonas alejadas.', fotosControl: [], disponible: true },
+  { id: 4, patente: 'AE 321 JK', marca: 'Chevrolet', modelo: 'Montana', tecnicoAsignado: 6, kilometraje: { inicial: 29400, actual: 30210, final: null }, seguro: { compania: 'Provincia Seguros', poliza: 'PS-29400', vence: '2027-06-08' }, ultimoService: '2026-08-21', detalle: 'Unidad de apoyo para trabajos de mantenimiento y tendido.', fotosControl: [], disponible: true },
+];
+
+export const reclamosIniciales = [
+  { id: 1, clienteId: 1, tipo: 'Sin servicio', prioridad: 'Urgente', descripcion: 'Cliente sin conexion desde la madrugada.', estado: 'Abierto', creadoEn: '2026-09-03T08:15:00-03:00', tecnicoId: null, agrupacionGeografica: 'Moron Centro', fechaProgramada: '2026-09-03' },
+  { id: 2, clienteId: 2, tipo: 'Baja potencia', prioridad: 'Normal', descripcion: 'La potencia recibida esta por debajo del valor esperado.', estado: 'Asignado', creadoEn: '2026-09-02T14:30:00-03:00', tecnicoId: 3, agrupacionGeografica: 'Castelar Norte', fechaProgramada: '2026-09-03' },
+  { id: 3, clienteId: 1, tipo: 'Corte intermitente', prioridad: 'Alta', descripcion: 'La conexion se corta durante algunos minutos varias veces al dia.', estado: 'En progreso', creadoEn: '2026-09-04T10:20:00-03:00', tecnicoId: 3, agrupacionGeografica: 'Moron Centro', fechaProgramada: '2026-09-06' },
+  { id: 4, clienteId: 2, tipo: 'Cambio de equipo', prioridad: 'Normal', descripcion: 'Reemplazo del equipo por falla detectada en la visita tecnica.', estado: 'Finalizado', creadoEn: '2026-09-01T09:10:00-03:00', tecnicoId: 3, agrupacionGeografica: 'Castelar Norte', fechaProgramada: '2026-09-02', comentarioFinalizacion: 'Se reemplazó el equipo y se verificó la estabilidad de la conexión.' },
+  { id: 5, clienteId: 3, tipo: 'Sin servicio', prioridad: 'Urgente', descripcion: 'El cliente no tiene servicio desde el inicio de la jornada.', estado: 'En progreso', creadoEn: '2026-09-19T08:40:00-03:00', tecnicoId: 7, agrupacionGeografica: 'Ramos Mejia', fechaProgramada: '2026-09-19' },
+  { id: 6, clienteId: 4, tipo: 'Baja potencia', prioridad: 'Alta', descripcion: 'Se detecta baja potencia en el domicilio del cliente.', estado: 'En progreso', creadoEn: '2026-09-19T09:05:00-03:00', tecnicoId: 8, agrupacionGeografica: 'Haedo Centro', fechaProgramada: '2026-09-19' },
+  { id: 7, clienteId: 5, tipo: 'Corte intermitente', prioridad: 'Normal', descripcion: 'La conexion presenta cortes breves durante el dia.', estado: 'Asignado', creadoEn: '2026-09-19T09:30:00-03:00', tecnicoId: 9, agrupacionGeografica: 'Ituzaingo Norte', fechaProgramada: '2026-09-19' },
+];
+export const jornadasIniciales = [];

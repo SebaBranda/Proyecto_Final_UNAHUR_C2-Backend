@@ -9,10 +9,15 @@ export const tecnicosCrud = crearControlador(tecnicosService);
 function crearControlador(service) {
   return {
     async listar(req, res) {
-      return responder(res, await service.listar({ usuario: req.query.usuario }));
+      return responder(res, await service.listar({
+        usuario: req.query.usuario,
+        usuarioAutenticado: req.usuarioAutenticado,
+      }));
     },
     async obtener(req, res) {
-      return responder(res, await service.obtener(req.params.id));
+      return responder(res, await service.obtener(req.params.id, {
+        usuarioAutenticado: req.usuarioAutenticado,
+      }));
     },
     async crear(req, res) {
       return responder(res, await service.crear(req.body));

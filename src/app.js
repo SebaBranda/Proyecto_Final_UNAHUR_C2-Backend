@@ -5,9 +5,35 @@ import resourcesRoutes from './routes/resources.routes.js';
 
 export function crearAplicacion() {
   const app = express();
+  const origenesPermitidos = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origen) => origen.trim())
+    .filter(Boolean);
 
-  app.use(cors());
+  // Los recursos de la API son dinámicos y no deben responder desde caché del navegador.
+  app.disable('etag');
+  app.use(cors({
+    origin: origenesPermitidos.length ? origenesPermitidos : false,
+    credentials: true,
+  }));
+  app.disable('x-powered-by');
+  app.use((_req, res, next) => {
+    res.set({
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    });
+    if (process.env.HTTPS_ENABLED === 'true') {
+      res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
   app.use(express.json());
+  app.use('/api', (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
 
   app.get('/', (_req, res) => {
     res.json({ servicio: 'GalacticApp API', estado: 'ok' });

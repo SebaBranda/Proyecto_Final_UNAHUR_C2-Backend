@@ -4,7 +4,7 @@ Backend API del proyecto GalacticApp desarrollado para el Proyecto Final de UNaH
 
 ## Descripción
 
-Este es el servidor backend de GalacticApp, construido con **Express.js**. Los endpoints de usuarios, técnicos y clientes utilizan MongoDB cuando la conexión está disponible y conservan un repositorio en memoria como fallback para desarrollo local.
+Este es el servidor backend de GalacticApp, construido con **Express.js**. Los endpoints de usuarios, técnicos y clientes utilizan MongoDB. El repositorio en memoria solo se habilita si se configura explícitamente `ALLOW_MEMORY_FALLBACK=true`.
 
 ## Requisitos Previos
 
@@ -12,7 +12,7 @@ Antes de comenzar, asegúrate de tener instalado:
 
 - **Node.js** (v16 o superior)
 - **npm** (se instala con Node.js)
-- **MongoDB** local o remoto (opcional mientras se usen los repositorios en memoria)
+- **MongoDB** local, remoto o mediante Docker
 - **Git**
 
 ## Instalación
@@ -57,9 +57,23 @@ desde `Proyecto Final`:
    Este comando:
    - Construye las imágenes del frontend y del backend.
    - Inicia MongoDB con volúmenes persistentes.
-   - Carga los datos iniciales una sola vez.
-   - Publica la aplicación en `http://localhost:8080`.
+   - No carga cuentas demo salvo que `SEED_DEMO_DATA=true`.
+   - Publica la aplicación en `https://localhost:8443` cuando existen certificados TLS.
    - Envía internamente `/api` del frontend al backend.
+
+Antes de levantar el frontend, crea certificados para desarrollo o monta un
+certificado emitido por una CA en `certs\fullchain.pem` y `certs\privkey.pem`.
+Para una prueba local con OpenSSL:
+
+```powershell
+mkdir certs
+openssl req -x509 -nodes -newkey rsa:2048 -days 30 `
+  -keyout certs\privkey.pem -out certs\fullchain.pem `
+  -subj "/CN=localhost"
+```
+
+Los certificados autofirmados solo sirven para desarrollo; en producción deben
+reemplazarse por certificados válidos y renovarse automáticamente.
 
 4. **Verificar que está corriendo:**
    ```bash
@@ -77,6 +91,35 @@ desde `Proyecto Final`:
    ```
 
 ### Comandos útiles de Docker
+
+### Inspeccionar la base de datos
+
+La base de datos no se consulta desde el navegador. El navegador consume la API; MongoDB se inspecciona directamente con Docker o con una herramienta como MongoDB Compass.
+
+Desde la carpeta `Proyecto Final`, con los servicios levantados:
+
+```powershell
+docker compose exec mongodb mongosh -u "$env:MONGO_ROOT_USER" -p "$env:MONGO_ROOT_PASSWORD" --authenticationDatabase admin
+```
+
+Dentro de `mongosh`:
+
+```javascript
+use galacticapp_db
+show collections
+db.usuarios.find({}, { passwordHash: 0 }).pretty()
+db.clientes.find().pretty()
+```
+
+La contraseña debe coincidir con `MONGO_ROOT_PASSWORD` del archivo `.env`. También se puede conectar MongoDB Compass con:
+
+```text
+mongodb://admin:change-this-password@localhost:27017/galacticapp_db?authSource=admin
+```
+
+En Docker Compose principal el puerto de MongoDB no se publica al host. Use
+`docker compose exec` para tareas operativas; no exponga `27017` porque
+permitiría saltear la API y su autorización por rol.
 
 ```bash
 # Ver logs de MongoDB
@@ -99,8 +142,8 @@ docker-compose exec backend npm run dev
 
 - **Host:** mongodb
 - **Puerto:** 27017
-- **Usuario:** admin (por defecto)
-- **Contraseña:** password (por defecto)
+- **Usuario:** `MONGO_ROOT_USER`
+- **Contraseña:** `MONGO_ROOT_PASSWORD`
 - **Base de datos:** galacticapp_db
 
 Para conectarte desde fuera del contenedor:
@@ -116,10 +159,10 @@ docker-compose -f docker-compose.yml up -d
 ```
 
 Asegúrate de:
-- Cambiar las credenciales de MongoDB en `.env`
-- Usar variables de entorno seguras
-- Configurar HTTPS/SSL si es necesario
-- Usar un reverse proxy como Nginx
+- Definir credenciales únicas y `JWT_SECRET` sin valores por defecto.
+- Mantener `SEED_DEMO_DATA=false` en producción.
+- Montar un certificado válido como `fullchain.pem` y `privkey.pem`.
+- Renovar el certificado y no versionar la carpeta `certs`.
 
 ## Configuración
 
@@ -128,43 +171,43 @@ Asegúrate de:
 Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
 ```env
-# Puerto del servidor
-HTTPS_PORT=3000
+# Puerto del servidor directo (solo desarrollo)
+PORT=3000
+HTTPS_ENABLED=false
 
 # Certificado HTTPS local autofirmado (se genera automáticamente)
 HTTPS_KEY_PATH=certs/localhost.key
 HTTPS_CERT_PATH=certs/localhost.crt
 
-# URI de conexión a MongoDB
-MONGO_URI=mongodb://localhost:27017/galacticapp_db
+# URI de conexión a MongoDB (obligatoria)
+MONGO_URI=mongodb://usuario:password@localhost:27017/galacticapp_db?authSource=admin
 
 # Secreto aleatorio de al menos 32 bytes para firmar JWT
 JWT_SECRET=poner_un_secreto_aleatorio_local
 ```
 
-El servidor inicia por HTTPS en `https://localhost:3000`. En Postman, para usar
-el certificado autofirmado de desarrollo, desactivar temporalmente **Settings >
-General > SSL certificate verification**. Las operaciones `GET` devuelven datos
-sanitizados; `POST`, `PUT`, `PATCH` y `DELETE` devuelven mensajes de confirmación
-y no exponen los registros almacenados.
+En el Compose principal, Nginx termina TLS en `https://localhost:8443` y redirige
+HTTP a HTTPS. El backend permanece en la red interna. El modo HTTPS directo del
+backend es opcional y solo debe usarse con certificados gestionados fuera del
+repositorio.
 
 ### Roles disponibles
 
 Todos los endpoints de recursos requieren un token `Bearer` obtenido mediante
-`POST /api/auth/login`. Los roles se conservan como datos normalizados para
-futuras restricciones, pero actualmente no limitan el acceso a las rutas.
+`POST /api/auth/login`. El servidor aplica el alcance del rol antes de consultar
+MongoDB; ocultar opciones en el frontend no reemplaza esta autorización.
 
 | Rol | Alcance |
 |---|---|
-| `Administrador` (`rolId: 1`) | Rol disponible, sin restricciones activas. |
-| `Coordinador` (`rolId: 2`) | Rol disponible, sin restricciones activas. |
-| `Tecnico` (`rolId: 3`) | Rol disponible, sin restricciones activas. |
+| `Administrador` (`rolId: 1`) | CRUD completo de usuarios, clientes, vehículos, reclamos y jornadas. |
+| `Coordinador` (`rolId: 2`) | Gestión operativa de técnicos, clientes, vehículos, reclamos, ubicaciones y jornadas. |
+| `Tecnico` (`rolId: 3`) | Solo su perfil, vehículo asignado, jornadas propias, reclamos asignados, clientes relacionados y ubicación propia. |
 
-La autorización por rol queda fuera del alcance por ahora: no existe el endpoint
-`GET /api/roles` ni se aplican restricciones de rol sobre los endpoints de
-recursos. Las rutas siguen requiriendo un token `Bearer`. Al crear o actualizar
-un usuario se debe enviar `rolId` como número (`1`, `2` o `3`); el nombre del rol
-no se almacena en el usuario.
+Las consultas ya devuelven únicamente los registros permitidos para el usuario
+autenticado. Las operaciones de asignación, actualización de estado,
+kilometraje, finalización y eliminación vuelven a validar la pertenencia y el
+rol en el backend. Al crear o actualizar un usuario se debe enviar `rolId` como
+número (`1`, `2` o `3`); el nombre del rol no se almacena en el usuario.
 
 ### Conexión a MongoDB
 
@@ -174,7 +217,10 @@ URI usada dentro de Docker tiene este formato:
 mongodb://admin:password@mongodb:27017/galacticapp_db?authSource=admin
 ```
 
-Los cambios de usuarios, técnicos y clientes quedan persistidos en MongoDB.
+Los cambios de usuarios, técnicos, clientes, vehículos, reclamos y jornadas
+quedan persistidos en MongoDB. El frontend no utiliza `localStorage` como fuente
+de verdad para datos operativos; solo conserva preferencias visuales y avisos
+locales no funcionales.
 Los volúmenes `mongodb_data` y `mongodb_config` evitan perder la información al
 recrear los contenedores. `docker compose down -v` elimina esos datos.
 

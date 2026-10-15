@@ -4,6 +4,9 @@ import {
   CoordinadorProfile,
   TecnicoProfile,
   Usuario,
+  Vehiculo,
+  Reclamo,
+  Jornada,
 } from '../models/schemas.js';
 import {
   adminPerfilesIniciales,
@@ -11,9 +14,16 @@ import {
   coordinadorPerfilesIniciales,
   tecnicoPerfilesIniciales,
   usuariosIniciales,
+  vehiculosIniciales,
+  reclamosIniciales,
+  jornadasIniciales,
 } from '../data/store.js';
 
 export async function sembrarDatosIniciales() {
+  if (process.env.SEED_DEMO_DATA !== 'true') {
+    console.log('Seed de datos demo deshabilitado.');
+    return;
+  }
   for (const usuario of usuariosIniciales) {
     await Usuario.updateOne(
       { id: usuario.id },
@@ -33,6 +43,9 @@ export async function sembrarDatosIniciales() {
       { upsert: true },
     );
   }
+  await sincronizarRegistros(Vehiculo, vehiculosIniciales);
+  await sincronizarRegistros(Reclamo, reclamosIniciales);
+  await sincronizarRegistros(Jornada, jornadasIniciales);
   console.log('Datos iniciales verificados en MongoDB');
 }
 
@@ -43,5 +56,12 @@ async function sincronizarPerfiles(Modelo, perfiles) {
       { $setOnInsert: perfil },
       { upsert: true },
     );
+  }
+
+}
+
+async function sincronizarRegistros(Modelo, registros) {
+  for (const registro of registros) {
+    await Modelo.updateOne({ id: registro.id }, { $setOnInsert: registro }, { upsert: true });
   }
 }

@@ -1,17 +1,29 @@
 import { clientesRepository } from '../repositories/clientes.repository.js';
+import { reclamosRepository } from '../repositories/recursos.repository.js';
 
 export const clientesService = {
-  async listar() {
+  async listar(usuarioAutenticado) {
     const clientes = await clientesRepository.listar();
+    if (usuarioAutenticado?.rolId === 3) {
+      const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
+      const permitidos = new Set(reclamos.map((reclamo) => reclamo.clienteId));
+      return respuesta(200, clientes.filter((cliente) => permitidos.has(cliente.id)).map(serializarCliente));
+    }
     return respuesta(200, clientes.map(serializarCliente));
   },
 
-  async obtener(idParametro) {
+  async obtener(idParametro, usuarioAutenticado) {
     const id = convertirId(idParametro);
     if (id === null) return errorId();
 
     const cliente = await clientesRepository.buscarPorId(id);
     if (!cliente) return respuesta(404, { mensaje: 'Cliente no encontrado' });
+    if (usuarioAutenticado?.rolId === 3) {
+      const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
+      if (!reclamos.some((reclamo) => reclamo.clienteId === id)) {
+        return respuesta(403, { mensaje: 'No tienes acceso a este cliente' });
+      }
+    }
     return respuesta(200, serializarCliente(cliente));
   },
 
