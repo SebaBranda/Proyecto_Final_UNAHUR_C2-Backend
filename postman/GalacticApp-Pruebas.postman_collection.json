@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7e96c906-526c-4e13-9bc1-2306bff7f3d1",
     "name": "Pruebas",
-    "description": "Pruebas CRUD de usuarios, técnicos y clientes. Ejecutá AUTH USUARIO primero. Los GET por ID usan IDs semilla independientes; las variables usuarioId, tecnicoId y clienteId se actualizan con los IDs creados y se usan para editar/eliminar. El servidor local usa HTTPS con certificado autofirmado: desactivá SSL certificate verification en Postman para desarrollo.",
+    "description": "Pruebas CRUD de usuarios, técnicos y clientes. Ejecutá AUTH USUARIO primero. Los GET por ID usan IDs semilla independientes; las variables usuarioId, tecnicoId y clienteId se actualizan con los IDs creados y se usan para editar/eliminar. La URL predeterminada corresponde al stack Docker completo; si ejecutás solo el backend, cambiá baseUrl a http://localhost:3000.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -18,7 +18,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "https://localhost:3000"
+      "value": "http://localhost:8080"
     },
     {
       "key": "token",
