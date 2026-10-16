@@ -19,7 +19,9 @@ export function autenticar(req, res, next) {
     });
     const rol = buscarRol(payload.rolId);
     if (!rol) return res.status(403).json({ mensaje: 'El rol del token no es válido' });
-    req.usuarioAutenticado = { id: payload.sub, rolId: rol.id, rol: rol.nombre };
+    const id = Number(payload.sub);
+    if (!Number.isInteger(id) || id <= 0) return res.status(401).json({ mensaje: 'El token no es válido o ha expirado' });
+    req.usuarioAutenticado = { id, rolId: rol.id, rol: rol.nombre };
     return next();
   } catch {
     return res.status(401).json({ mensaje: 'El token no es válido o ha expirado' });
