@@ -10,6 +10,13 @@ const elegir = (body, campos) => Object.fromEntries(
     .filter((campo) => Object.prototype.hasOwnProperty.call(body || {}, campo))
     .map((campo) => [campo, body[campo]]),
 );
+const DIAS_HISTORIAL = 30;
+const MILISEGUNDOS_DIA = 24 * 60 * 60 * 1000;
+const limiteHistorial = () => Date.now() - (DIAS_HISTORIAL * MILISEGUNDOS_DIA);
+const controlesVigentes = (controles = []) => controles.filter((registro) => {
+  const fecha = new Date(registro.fechaControl || registro.fecha || 0).getTime();
+  return Number.isFinite(fecha) && fecha >= limiteHistorial();
+});
 
 // Busca el vehículo y verifica que el técnico solo acceda al que tiene asignado.
 async function buscarPropio(vehiculoId, usuario) {
@@ -40,7 +47,11 @@ async function liberarOtrosVehiculos(tecnicoId, vehiculoId) {
 export const vehiculosService = {
   async listar(usuario) {
     const filtro = esGestion(usuario) ? {} : { tecnicoAsignado: aId(usuario.id) };
-    return resultado(200, await vehiculosRepository.listar(filtro));
+    const vehiculos = await vehiculosRepository.listar(filtro);
+    return resultado(200, vehiculos.map((vehiculo) => ({
+      ...vehiculo,
+      controles: controlesVigentes(vehiculo.controles),
+    })));
   },
 
   async crear(body, usuario) {
@@ -120,10 +131,15 @@ export const vehiculosService = {
     if (error) return error;
     const kilometros = Number(body?.kilometraje);
     if (!Number.isFinite(kilometros)) return resultado(400, { mensaje: 'El kilometraje es obligatorio' });
-    const control = elegir(body, ['kilometraje', 'estado', 'observaciones', 'fotosControl']);
+    const control = {
+      ...elegir(body, ['kilometraje', 'estado', 'observaciones', 'fotosControl']),
+      fechaControl: new Date().toISOString(),
+    };
+    const controles = controlesVigentes(vehiculo.controles);
     return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, {
       kilometraje: { ...vehiculo.kilometraje, actual: kilometros },
-      controles: [...(vehiculo.controles || []), control],
+      ...(control.fotosControl ? { fotosControl: control.fotosControl } : {}),
+      controles: [...controles, control],
       ultimoControl: control,
     }));
   },

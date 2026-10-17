@@ -8,6 +8,17 @@ const elegir = (body, campos) => Object.fromEntries(
     .filter((campo) => Object.prototype.hasOwnProperty.call(body || {}, campo))
     .map((campo) => [campo, body[campo]]),
 );
+const cantidadFotosRequerida = 4;
+
+function validarFotosFinales(fotos) {
+  if (!Array.isArray(fotos) || fotos.length !== cantidadFotosRequerida) {
+    return `Se requieren exactamente ${cantidadFotosRequerida} fotos del vehículo para finalizar la jornada`;
+  }
+  if (fotos.some((foto) => !foto || typeof foto.imagen !== 'string' || !foto.imagen.startsWith('data:image/'))) {
+    return 'Las fotos del vehículo no son válidas';
+  }
+  return null;
+}
 
 export const jornadasService = {
   async listar(usuario) {
@@ -34,10 +45,14 @@ export const jornadasService = {
     if (!esGestion(usuario) && jornada.tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes finalizar tu propia jornada' });
     }
+    const errorFotos = validarFotosFinales(body?.fotos);
+    if (errorFotos) return resultado(400, { mensaje: errorFotos });
     return resultado(200, await jornadasRepository.actualizar(jornada.id, {
       fin: new Date().toISOString(),
       activa: false,
-      controlFinal: elegir(body, ['kilometrajeFinal', 'observaciones']),
+      controlFinal: elegir(body, [
+        'kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'foto', 'fotos',
+      ]),
     }));
   },
 
