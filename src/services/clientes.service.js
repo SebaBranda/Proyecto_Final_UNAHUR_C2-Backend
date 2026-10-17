@@ -1,5 +1,5 @@
 import { clientesRepository } from '../repositories/clientes.repository.js';
-import { reclamosRepository } from '../repositories/recursos.repository.js';
+import { reclamosRepository } from '../repositories/reclamos.repository.js';
 
 export const clientesService = {
   async listar(usuarioAutenticado) {

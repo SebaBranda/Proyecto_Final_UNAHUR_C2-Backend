@@ -1,15 +1,35 @@
-import mongoose from 'mongoose';
-import { clientesIniciales } from '../data/store.js';
-import { ClientesMemoryRepository } from './clientes.memory.repository.js';
-import { ClientesMongoRepository } from './clientes.mongo.repository.js';
+import { Cliente } from '../models/schemas.js';
 
-const repositorioMemoria = new ClientesMemoryRepository(clientesIniciales);
-const repositorioMongo = new ClientesMongoRepository();
+class ClientesRepository {
+  async listar() {
+    return Cliente.find().select('-_id -__v').lean();
+  }
 
-export const clientesRepository = new Proxy(repositorioMemoria, {
-  get(target, propiedad) {
-    const repositorio = mongoose.connection.readyState === 1 ? repositorioMongo : target;
-    const valor = repositorio[propiedad];
-    return typeof valor === 'function' ? valor.bind(repositorio) : valor;
-  },
-});
+  async buscarPorId(id) {
+    return Cliente.findOne({ id }).select('-_id -__v').lean();
+  }
+
+  async crear(datos) {
+    const id = datos.id ?? await this.siguienteId();
+    return (await Cliente.create({ ...datos, id })).toObject();
+  }
+
+  async actualizar(id, cambios) {
+    return Cliente.findOneAndUpdate(
+      { id },
+      { ...cambios, id },
+      { new: true, runValidators: true },
+    ).select('-_id -__v').lean();
+  }
+
+  async eliminar(id) {
+    return Cliente.findOneAndDelete({ id }).select('-_id -__v').lean();
+  }
+
+  async siguienteId() {
+    const ultimo = await Cliente.findOne().sort({ id: -1 }).select('id').lean();
+    return (ultimo?.id ?? 0) + 1;
+  }
+}
+
+export const clientesRepository = new ClientesRepository();

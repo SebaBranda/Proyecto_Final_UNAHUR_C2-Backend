@@ -1,14 +1,27 @@
-import mongoose from 'mongoose';
-import { UbicacionesMemoryRepository } from './ubicaciones.memory.repository.js';
-import { UbicacionesMongoRepository } from './ubicaciones.mongo.repository.js';
+import { UbicacionTecnico } from '../models/schemas.js';
 
-const repositorioMemoria = new UbicacionesMemoryRepository();
-const repositorioMongo = new UbicacionesMongoRepository();
+class UbicacionesRepository {
+  async listar() {
+    return UbicacionTecnico.find().select('-_id').lean();
+  }
 
-export const ubicacionesRepository = new Proxy(repositorioMemoria, {
-  get(target, propiedad) {
-    const repositorio = mongoose.connection.readyState === 1 ? repositorioMongo : target;
-    const valor = repositorio[propiedad];
-    return typeof valor === 'function' ? valor.bind(repositorio) : valor;
-  },
-});
+  async listarPorTecnico(tecnicoId) {
+    const ubicacion = await UbicacionTecnico.findOne({ tecnicoId }).select('-_id').lean();
+    return ubicacion ? [ubicacion] : [];
+  }
+
+  async actualizar(tecnicoId, { latitud, longitud }) {
+    return UbicacionTecnico.findOneAndUpdate(
+      { tecnicoId },
+      {
+        tecnicoId,
+        latitud,
+        longitud,
+        actualizadoEn: new Date(),
+      },
+      { upsert: true, new: true, runValidators: true, projection: { _id: 0 } },
+    ).lean();
+  }
+}
+
+export const ubicacionesRepository = new UbicacionesRepository();

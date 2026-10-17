@@ -29,7 +29,8 @@ export function crearAplicacion() {
     }
     next();
   });
-  app.use(express.json());
+  // Hasta 5 fotos de evidencia en base64 (~600 KB c/u) viajan en el mismo pedido.
+  app.use(express.json({ limit: '5mb' }));
   app.use('/api', (_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();
@@ -50,6 +51,9 @@ export function crearAplicacion() {
   });
 
   app.use((error, _req, res, _next) => {
+    if (error.type === 'entity.too.large') {
+      return res.status(413).json({ mensaje: 'Los datos enviados son demasiado grandes. Probá con menos fotos.' });
+    }
     const esJsonInvalido = error instanceof SyntaxError && error.status === 400 && 'body' in error;
     const esValidacionMongoose = error instanceof mongoose.Error.ValidationError;
     const esDuplicado = error.code === 'DUPLICATE_USERNAME' || error.code === 11000;

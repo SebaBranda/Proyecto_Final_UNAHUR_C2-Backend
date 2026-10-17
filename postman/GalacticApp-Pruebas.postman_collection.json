@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "7e96c906-526c-4e13-9bc1-2306bff7f3d1",
-    "name": "Pruebas",
-    "description": "Pruebas CRUD de usuarios, técnicos y clientes. Ejecutá AUTH USUARIO primero. Los GET por ID usan IDs semilla independientes; las variables usuarioId, tecnicoId y clienteId se actualizan con los IDs creados y se usan para editar/eliminar. La URL predeterminada corresponde al stack Docker completo; si ejecutás solo el backend, cambiá baseUrl a http://localhost:3000.",
+    "name": "GalacticApp - Pruebas de la API",
+    "description": "Pruebas de punta a punta de la API de GalacticApp.\n\nCÓMO USARLA\n- Ejecutá la colección completa con el Runner, en orden: cada carpeta usa datos que crea la anterior.\n- Es autocontenida: crea su propio coordinador, técnico, cliente, vehículo, reclamo y jornada de prueba, y los borra en \"9. Limpieza\".\n- Solo necesita el usuario admin/admin (datos demo con SEED_DEMO_DATA=true).\n- baseUrl apunta al stack Docker (http://localhost:8080). Si corrés solo el backend con npm run dev, cambiala a http://localhost:3000.\n\nTOKENS\n- token: administrador (autenticación por defecto de la colección).\n- tokenCoordinador y tokenTecnico: se usan en los pedidos que prueban esos roles.\n- Los tokens vencen a la hora: si pasó más tiempo, volvé a ejecutar \"1. Autenticación\".",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -25,534 +25,2459 @@
       "value": ""
     },
     {
-      "key": "usuarioId",
-      "value": "1"
+      "key": "tokenCoordinador",
+      "value": ""
+    },
+    {
+      "key": "tokenTecnico",
+      "value": ""
+    },
+    {
+      "key": "coordinadorUsuario",
+      "value": ""
+    },
+    {
+      "key": "tecnicoUsuario",
+      "value": ""
+    },
+    {
+      "key": "clavePrueba",
+      "value": "ClaveDePrueba123"
+    },
+    {
+      "key": "coordinadorId",
+      "value": ""
     },
     {
       "key": "tecnicoId",
-      "value": "3"
+      "value": ""
     },
     {
       "key": "clienteId",
-      "value": "1"
-    },
-    {
-      "key": "usuarioConsultaId",
-      "value": "1"
-    },
-    {
-      "key": "tecnicoConsultaId",
-      "value": "3"
-    },
-    {
-      "key": "clienteConsultaId",
-      "value": "1"
-    },
-    {
-      "key": "clienteNombre",
       "value": ""
     },
     {
-      "key": "clienteEmail",
+      "key": "vehiculoId",
       "value": ""
+    },
+    {
+      "key": "reclamoId",
+      "value": ""
+    },
+    {
+      "key": "jornadaId",
+      "value": ""
+    },
+    {
+      "key": "patentePrueba",
+      "value": ""
+    },
+    {
+      "key": "fotoPrueba",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
     }
   ],
   "item": [
     {
-      "name": "AUTH USUARIO",
-      "event": [
+      "name": "0. Salud",
+      "description": "Verifica que la API responda. No requiere sesión.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Login exitoso', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
-              "  pm.collectionVariables.set('token', respuesta.token);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "auth": {
-          "type": "noauth"
-        },
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"admin\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "GET ESTADO DEL SERVICIO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La API responde', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().status).to.eql('success');",
+                  "});"
+                ]
+              }
             }
-          }
-        },
-        "url": "{{baseUrl}}/api/auth/login"
-      }
-    },
-    {
-      "name": "GET TODOS LOS USUARIOS",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/usuarios"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Lista de usuarios responde 200', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json()).to.be.an('array');",
-              "});"
-            ]
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ping",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
     },
     {
-      "name": "GET USUARIO POR ID",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/usuarios/{{usuarioConsultaId}}"
-      },
-      "event": [
+      "name": "1. Autenticación",
+      "description": "Login con JWT. Las contraseñas se validan contra un hash scrypt; el token vence en 1 hora.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Usuario encontrado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json()).to.have.property('id');",
-              "});"
-            ]
+          "name": "POST LOGIN ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login exitoso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(respuesta.usuario).to.not.have.property('passwordHash');",
+                  "  pm.collectionVariables.set('token', respuesta.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST LOGIN CON CONTRASEÑA INCORRECTA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario o contraseña incorrectos\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST LOGIN SIN DATOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requieren usuario y contraseña\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET SIN TOKEN (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requiere autenticación\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
     },
     {
-      "name": "GET TODOS LOS TECNICOS",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/tecnicos"
-      },
-      "event": [
+      "name": "2. Usuarios",
+      "description": "Solo el administrador crea, edita o elimina usuarios. El perfil depende del rol (1 Admin, 2 Coordinador, 3 Técnico).",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Lista de técnicos responde 200', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json()).to.be.an('array');",
-              "});"
-            ]
+          "name": "GET TODOS LOS USUARIOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista de usuarios responde 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios"
+          }
+        },
+        {
+          "name": "POST CREAR COORDINADOR",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('coordinadorUsuario', 'coord.postman.' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Coordinador creado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql('Usuario creado correctamente');",
+                  "  pm.collectionVariables.set('coordinadorId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{coordinadorUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\",\n  \"nombre\": \"Coordinador Postman\",\n  \"rolId\": 2,\n  \"activo\": true,\n  \"perfil\": {\n    \"zonaAsignada\": \"Zona Norte\",\n    \"maxTecnicosACargo\": 8\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR TECNICO",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('tecnicoUsuario', 'tecnico.postman.' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Técnico creado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('tecnicoId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{tecnicoUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\",\n  \"nombre\": \"Técnico Postman\",\n  \"rolId\": 3,\n  \"perfil\": {\n    \"documento\": \"40999888\",\n    \"fechaNacimiento\": \"1992-05-10\",\n    \"vencimientoRegistro\": \"2028-05-10\",\n    \"telefono\": \"11-4000-0000\",\n    \"email\": \"tecnico.postman@galactic.app\",\n    \"direccion\": \"Dirección de prueba 123\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR USUARIO CON ROL INVÁLIDO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rechaza un rol inexistente\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"rol.invalido\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"X\",\n  \"rolId\": 9\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET USUARIO POR ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve el técnico con su perfil y sin contraseña', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const usuario = pm.response.json();",
+                  "  pm.expect(usuario.perfil).to.have.property('telefono');",
+                  "  pm.expect(usuario).to.not.have.property('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+          }
+        },
+        {
+          "name": "PATCH EDITAR TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario actualizado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Técnico Postman actualizado\",\n  \"perfil\": {\n    \"telefono\": \"11-4111-2222\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET TODOS LOS TECNICOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista de técnicos responde 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/tecnicos"
+          }
+        },
+        {
+          "name": "POST LOGIN COORDINADOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login exitoso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(respuesta.usuario).to.not.have.property('passwordHash');",
+                  "  pm.collectionVariables.set('tokenCoordinador', respuesta.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{coordinadorUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST LOGIN TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login exitoso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(respuesta.usuario).to.not.have.property('passwordHash');",
+                  "  pm.collectionVariables.set('tokenTecnico', respuesta.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{tecnicoUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET USUARIOS COMO TECNICO (SOLO SE VE A SÍ MISMO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico solo se ve a sí mismo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const usuarios = pm.response.json();",
+                  "  pm.expect(usuarios).to.have.lengthOf(1);",
+                  "  pm.expect(usuarios[0].id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR USUARIO COMO COORDINADOR (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No tienes permisos para realizar esta acción\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"no.permitido\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"X\",\n  \"rolId\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "GET TECNICO POR ID",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/tecnicos/{{tecnicoConsultaId}}"
-      },
-      "event": [
+      "name": "3. Clientes",
+      "description": "Admin y coordinador gestionan clientes. El técnico solo ve los clientes de sus reclamos.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Técnico encontrado con perfil', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json().perfil).to.be.an('object');",
-              "});"
-            ]
+          "name": "GET TODOS LOS CLIENTES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista de clientes responde 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes"
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cliente creado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql('Cliente creado correctamente');",
+                  "  pm.collectionVariables.set('clienteId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente Postman\",\n  \"documento\": \"40999777\",\n  \"telefono\": \"11-4222-0000\",\n  \"email\": \"cliente.postman@example.com\",\n  \"direccion\": \"Av. de Prueba 456, Morón\",\n  \"zona\": \"Moron Centro\",\n  \"coordenadas\": {\n    \"latitud\": -34.65,\n    \"longitud\": -58.62\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE SIN NOMBRE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requieren los campos: nombre\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefono\": \"11-0000-0000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET CLIENTE POR ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cliente encontrado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().nombre).to.eql('Cliente Postman');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          }
+        },
+        {
+          "name": "PATCH EDITAR CLIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente actualizado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefono\": \"11-4999-1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El técnico no puede crear clientes\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"No permitido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "GET TODOS LOS CLIENTES",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/clientes"
-      },
-      "event": [
+      "name": "4. Vehículos",
+      "description": "Cada técnico tiene como máximo un vehículo. El técnico solo ve y actualiza (kilometraje, control) el suyo.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Lista de clientes responde 200', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json()).to.be.an('array');",
-              "});"
-            ]
+          "name": "GET TODOS LOS VEHICULOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista de vehículos responde 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos"
+          }
+        },
+        {
+          "name": "POST CREAR VEHICULO ASIGNADO AL TECNICO",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('patentePrueba', 'PM ' + String(Date.now()).slice(-6));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Vehículo creado y asignado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const vehiculo = pm.response.json();",
+                  "  pm.expect(vehiculo.tecnicoAsignado).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.collectionVariables.set('vehiculoId', vehiculo.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"{{patentePrueba}}\",\n  \"marca\": \"Fiat\",\n  \"modelo\": \"Fiorino\",\n  \"tecnicoAsignado\": {{tecnicoId}},\n  \"kilometraje\": { \"inicial\": 1000, \"actual\": 1000 },\n  \"seguro\": { \"compania\": \"Seguro Postman\", \"poliza\": \"PM-001\", \"vence\": \"2027-12-31\" },\n  \"ultimoService\": \"2026-09-01\",\n  \"detalle\": \"Vehículo creado desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR VEHICULO SIN PATENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La patente es obligatoria\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"Ford\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH ASIGNAR A TECNICO INEXISTENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El técnico indicado no existe\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/asignacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tecnicoId\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH EDITAR DATOS DEL VEHICULO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Datos actualizados\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"detalle\": \"Detalle actualizado desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET VEHICULOS COMO TECNICO (SOLO EL SUYO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico ve solo su vehículo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const vehiculos = pm.response.json();",
+                  "  pm.expect(vehiculos).to.have.lengthOf(1);",
+                  "  pm.expect(vehiculos[0].id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH KILOMETRAJE MENOR AL ACTUAL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El kilometraje debe ser válido y no menor al actual.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/kilometraje",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH REGISTRAR KILOMETRAJE (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Kilometraje actualizado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().kilometraje.actual).to.eql(1500);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/kilometraje",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH CONTROL DEL VEHICULO (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Control registrado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().controles).to.have.lengthOf(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1510,\n  \"estado\": \"Bueno\",\n  \"observaciones\": \"Sin novedades\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH EDITAR VEHICULO COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El técnico no puede editar los datos del vehículo\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"Otra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "GET CLIENTE POR ID",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/clientes/{{clienteConsultaId}}"
-      },
-      "event": [
+      "name": "5. Reclamos",
+      "description": "Ciclo: Abierto → Asignado → En progreso → Finalizado (o Bloqueado). Cada rol solo puede modificar ciertos campos.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Cliente encontrado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json()).to.have.property('id');",
-              "});"
-            ]
+          "name": "GET TODOS LOS RECLAMOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista de reclamos responde 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos"
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO SIN TIPO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El tipo de reclamo es obligatorio\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO CON PRIORIDAD INVÁLIDA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Prioridad inválida\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"tipo\": \"Sin servicio\",\n  \"prioridad\": \"Altísima\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO SIN TECNICO (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reclamo creado en estado Abierto y con la zona del cliente', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const reclamo = pm.response.json();",
+                  "  pm.expect(reclamo.estado).to.eql('Abierto');",
+                  "  pm.expect(reclamo.tipo).to.eql('Sin servicio');",
+                  "  pm.expect(reclamo.agrupacionGeografica).to.eql('Moron Centro');",
+                  "  pm.collectionVariables.set('reclamoId', reclamo.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"tipo\": \"Sin servicio\",\n  \"prioridad\": \"Alta\",\n  \"descripcion\": \"Reclamo creado desde Postman\",\n  \"fechaProgramada\": \"2026-10-20\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH ASIGNAR TECNICO AL RECLAMO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reclamo asignado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().estado).to.eql('Asignado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/asignacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tecnicoId\": {{tecnicoId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH NOTAS DEL COORDINADOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Notas guardadas', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().notasCoordinador).to.eql('Llamar al cliente antes de ir');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notasCoordinador\": \"Llamar al cliente antes de ir\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECLAMOS COMO TECNICO (SOLO LOS SUYOS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico solo ve sus reclamos', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  pm.response.json().forEach((reclamo) => pm.expect(reclamo.tecnicoId).to.eql(tecnicoId));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH NOTAS COMO TECNICO (SE IGNORAN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No hay campos modificables\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notasCoordinador\": \"No debería poder\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH COMENZAR RECLAMO (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reclamo en progreso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().estado).to.eql('En progreso');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"En progreso\",\n  \"vehiculoId\": {{vehiculoId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El técnico no puede crear reclamos\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"tipo\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET CLIENTES COMO TECNICO (LOS DE SUS RECLAMOS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico ve al cliente de su reclamo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const ids = pm.response.json().map((cliente) => cliente.id);",
+                  "  pm.expect(ids).to.include(Number(pm.collectionVariables.get('clienteId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "POST CREAR USUARIO",
-      "event": [
+      "name": "6. Evidencias (fotos)",
+      "description": "Las fotos viajan en base64 (data URL) al finalizar el reclamo: JPG, PNG o WebP, hasta 600 KB cada una y hasta 5 por reclamo. Se guardan aparte y se consultan con GET /reclamos/:id/evidencias.",
+      "item": [
         {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('usuarioPrueba', 'coord.postman.' + Date.now());"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Usuario creado con identificador', function () {",
-              "  pm.response.to.have.status(201);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario creado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "  pm.collectionVariables.set('usuarioId', respuesta.id);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"usuario\": \"{{usuarioPrueba}}\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"Coordinador Postman\",\n  \"rolId\": 2,\n  \"activo\": true,\n  \"perfil\": {\n    \"zonaAsignada\": \"Zona Norte\",\n    \"maxTecnicosACargo\": 8\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "PATCH FINALIZAR SIN FOTOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Adjuntá al menos una foto del trabajo para finalizar.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/usuarios"
-      }
-    },
-    {
-      "name": "POST CREAR TECNICO",
-      "event": [
         {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('tecnicoPrueba', 'tecnico.postman.' + Date.now());"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Técnico creado con identificador', function () {",
-              "  pm.response.to.have.status(201);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario creado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "  pm.collectionVariables.set('tecnicoId', respuesta.id);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"usuario\": \"{{tecnicoPrueba}}\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"Técnico Postman\",\n  \"rolId\": 3,\n  \"perfil\": {\n    \"documento\": \"40999888\",\n    \"fechaNacimiento\": \"1992-05-10\",\n    \"vencimientoRegistro\": \"2028-05-10\",\n    \"telefono\": \"11-4000-0000\",\n    \"email\": \"tecnico.postman@galactic.app\",\n    \"direccion\": \"Dirección de prueba 123\"\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "PATCH FINALIZAR CON ARCHIVO QUE NO ES IMAGEN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La foto 1 no es válida. Usá fotos JPG, PNG o WebP.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\",\n  \"evidencias\": [\n    \"esto no es una imagen\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/usuarios"
-      }
-    },
-    {
-      "name": "POST CREAR CLIENTE",
-      "event": [
         {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "const marcaTiempo = Date.now();",
-              "pm.collectionVariables.set('clienteNombre', 'Cliente Postman ' + marcaTiempo);",
-              "pm.collectionVariables.set('clienteEmail', 'cliente.postman.' + marcaTiempo + '@example.com');"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Cliente creado con identificador', function () {",
-              "  pm.response.to.have.status(201);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Cliente creado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "  pm.collectionVariables.set('clienteId', respuesta.id);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nombre\": \"{{clienteNombre}}\",\n  \"documento\": \"40999777\",\n  \"telefono\": \"11-4222-0000\",\n  \"email\": \"{{clienteEmail}}\",\n  \"direccion\": \"Dirección de prueba 456\",\n  \"activo\": true\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "PATCH FINALIZAR CON MÁS DE 5 FOTOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Podés adjuntar hasta 5 fotos por reclamo.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"evidencias\": [\"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/clientes"
-      }
-    },
-    {
-      "name": "PUT EDITAR USUARIO",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Usuario actualizado con respuesta segura', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario actualizado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nombre\": \"Coordinador Postman actualizado\",\n  \"perfil\": {\n    \"zonaAsignada\": \"Zona Oeste\"\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "PATCH FINALIZAR RECLAMO CON FOTOS (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reclamo finalizado con 2 fotos', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const reclamo = pm.response.json();",
+                  "  pm.expect(reclamo.estado).to.eql('Finalizado');",
+                  "  pm.expect(reclamo.cantidadEvidencias).to.eql(2);",
+                  "  pm.expect(reclamo).to.not.have.property('evidencias');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "description": "fotoPrueba es una imagen PNG de 1x1 en base64. En la app, el navegador comprime cada foto a ~200 KB antes de enviarla.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"evidencias\": [\"{{fotoPrueba}}\", \"{{fotoPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
-      }
-    },
-    {
-      "name": "PUT EDITAR TECNICO",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Técnico actualizado con respuesta segura', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario actualizado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nombre\": \"Técnico Postman actualizado\",\n  \"perfil\": {\n    \"telefono\": \"11-4111-2222\"\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "GET FOTOS DEL RECLAMO (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve las 2 fotos como { id, url }', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const fotos = pm.response.json();",
+                  "  pm.expect(fotos).to.have.lengthOf(2);",
+                  "  pm.expect(fotos[0]).to.have.all.keys('id', 'url', 'creadoEn');",
+                  "  pm.expect(fotos[0].url).to.match(/^data:image\\//);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/evidencias",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
-      }
-    },
-    {
-      "name": "PUT EDITAR CLIENTE",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Cliente actualizado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Cliente actualizado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"telefono\": \"11-4999-1234\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "GET FOTOS DEL RECLAMO (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El coordinador también ve las fotos', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/evidencias",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
-        "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
-      }
-    },
-    {
-      "name": "DEL ELIMINAR USUARIO",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Usuario eliminado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario eliminado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
+          "name": "GET RECLAMOS NO INCLUYE LAS FOTOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La lista solo informa la cantidad, no las fotos', function () {",
+                  "  const reclamo = pm.response.json().find((r) => r.id === Number(pm.collectionVariables.get('reclamoId')));",
+                  "  pm.expect(reclamo.cantidadEvidencias).to.eql(2);",
+                  "  pm.expect(reclamo).to.not.have.property('evidencias');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
-      ],
-      "request": {
-        "method": "DELETE",
-        "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
-      }
+      ]
     },
     {
-      "name": "DEL ELIMINAR TECNICO",
-      "event": [
+      "name": "7. Jornadas",
+      "description": "El técnico inicia y finaliza su propia jornada de trabajo.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Técnico eliminado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Usuario eliminado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
+          "name": "POST INICIAR JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jornada iniciada', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const jornada = pm.response.json();",
+                  "  pm.expect(jornada.activa).to.eql(true);",
+                  "  pm.collectionVariables.set('jornadaId', jornada.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometrajeInicial\": 1510,\n  \"observaciones\": \"Inicio desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS COMO TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico ve solo sus jornadas', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  pm.response.json().forEach((jornada) => pm.expect(jornada.tecnicoId).to.eql(tecnicoId));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jornada finalizada', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const jornada = pm.response.json();",
+                  "  pm.expect(jornada.activa).to.eql(false);",
+                  "  pm.expect(jornada.fin).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometrajeFinal\": 1540,\n  \"observaciones\": \"Fin de jornada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
-      ],
-      "request": {
-        "method": "DELETE",
-        "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
-      }
+      ]
     },
     {
-      "name": "DEL ELIMINAR CLIENTE",
-      "event": [
+      "name": "8. Ubicaciones",
+      "description": "El técnico guarda solo su propia ubicación GPS; admin y coordinador ven todas (mapa).",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Cliente eliminado', function () {",
-              "  pm.response.to.have.status(200);",
-              "  const respuesta = pm.response.json();",
-              "  pm.expect(respuesta.mensaje).to.eql('Cliente eliminado correctamente');",
-              "  pm.expect(respuesta.id).to.exist;",
-              "});"
-            ]
+          "name": "PATCH GUARDAR MI UBICACION (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ubicación guardada', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().latitud).to.eql(-34.6512);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/{{tecnicoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitud\": -34.6512,\n  \"longitud\": -58.6198\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH UBICACION FUERA DE RANGO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requieren latitud y longitud válidas\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/{{tecnicoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitud\": 200,\n  \"longitud\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH UBICACION DE OTRO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Solo puedes registrar tu propia ubicación como técnico\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitud\": -34.6,\n  \"longitud\": -58.6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET UBICACIONES (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Incluye la ubicación del técnico de prueba', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  pm.expect(pm.response.json().some((u) => u.tecnicoId === tecnicoId)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
-      ],
-      "request": {
-        "method": "DELETE",
-        "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
-      }
+      ]
+    },
+    {
+      "name": "9. Limpieza",
+      "description": "Borra todo lo creado por la colección, en orden inverso a las dependencias.",
+      "item": [
+        {
+          "name": "DEL ELIMINAR JORNADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Jornada eliminada\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR RECLAMO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Reclamo eliminado\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR VEHICULO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Vehículo eliminado\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR CLIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente eliminado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario eliminado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR COORDINADOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario eliminado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{coordinadorId}}"
+          }
+        }
+      ]
     }
   ]
 }

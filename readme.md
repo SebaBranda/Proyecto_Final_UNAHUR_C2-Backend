@@ -4,7 +4,7 @@ Backend API del proyecto GalacticApp desarrollado para el Proyecto Final de UNaH
 
 ## Descripción
 
-Este es el servidor backend de GalacticApp, construido con **Express.js**. Los endpoints de usuarios, técnicos y clientes utilizan MongoDB. El repositorio en memoria solo se habilita si se configura explícitamente `ALLOW_MEMORY_FALLBACK=true`.
+Este es el servidor backend de GalacticApp, construido con **Express.js**. Todos los datos se guardan en MongoDB, que es obligatorio para iniciar el servidor.
 
 ## Requisitos Previos
 
@@ -251,9 +251,9 @@ npm start
 │   ├── app.js                         # Configuración de Express y middlewares
 │   ├── config/database.js             # Conexión a MongoDB
 │   ├── controllers/                   # Controladores HTTP y CRUD compartido
-│   ├── data/store.js                  # Datos iniciales para memoria
+│   ├── data/store.js                  # Datos demo (se cargan con SEED_DEMO_DATA=true)
 │   ├── models/schemas.js              # Esquemas Mongoose de usuarios y clientes
-│   ├── repositories/                  # Repositorios en memoria
+│   ├── repositories/                  # Acceso a MongoDB, un archivo por recurso
 │   ├── routes/resources.routes.js      # Rutas HTTP de la API
 │   └── services/                      # Hash de contraseñas y lógica de usuarios
 ├── package.json                      # Dependencias y scripts
@@ -524,13 +524,13 @@ DELETE http://localhost:3000/api/clientes/1
 
 #### IDs y errores esperados
 
-- Los IDs iniciales de memoria son números. Usa un ID existente al probar `GET`, `PATCH`, `PUT` o `DELETE`.
+- Los IDs son números. Usa un ID existente al probar `GET`, `PATCH`, `PUT` o `DELETE`.
 - `400`: JSON/campos inválidos, rol no permitido o ID no válido.
 - `401`: usuario/contraseña incorrectos o cuenta inactiva al iniciar sesión.
 - `404`: ruta o registro no encontrado.
 - `500`: error inesperado del servidor.
 
-Los datos creados, actualizados o eliminados solo viven en memoria y se pierden al reiniciar el proceso.
+Los datos creados, actualizados o eliminados se guardan en MongoDB.
 
 `npm run check` valida la sintaxis del código sin requerir una instancia de MongoDB.
 
@@ -546,7 +546,7 @@ CORS está habilitado en todas las rutas para permitir solicitudes desde el fron
 ## Notas Importantes
 
 - El servidor escucha por defecto en el puerto **3000**
-- La conexión a MongoDB no es necesaria mientras se usen los repositorios en memoria
+- El servidor no inicia si no puede conectarse a MongoDB (`MONGO_URI`)
 - Asegúrate de que el archivo `.env` no se versionea (incluido en `.gitignore`)
 - Usa `npm run dev` durante el desarrollo para recargas automáticas
 

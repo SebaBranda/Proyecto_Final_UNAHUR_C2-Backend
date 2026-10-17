@@ -17,16 +17,10 @@ async function iniciarServidor() {
   if (!MONGO_URI) throw new Error('MONGO_URI debe configurarse');
   try {
     await conectarBaseDeDatos(MONGO_URI);
-    await sembrarDatosIniciales();
   } catch (error) {
-    if (process.env.ALLOW_MEMORY_FALLBACK !== 'true') {
-      throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
-    }
-    console.warn(
-      'MongoDB no está disponible; se habilitó explícitamente el repositorio en memoria:',
-      error.message,
-    );
+    throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
   }
+  await sembrarDatosIniciales();
 
   if (process.env.HTTPS_ENABLED === 'true') {
     const httpsOptions = await cargarCertificados();
