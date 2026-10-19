@@ -1,7 +1,9 @@
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
-import { evidenciasService, validarEvidencias } from './evidencias.service.js';
+import { imagenesService } from './imagenes.service.js';
+
+const MAXIMO_IMAGENES_RECLAMO = 5;
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -15,14 +17,12 @@ const elegir = (body, campos) => Object.fromEntries(
 
 const estadosReclamo = new Set(['Abierto', 'Asignado', 'En progreso', 'Bloqueado', 'Finalizado']);
 const prioridadesReclamo = new Set(['Normal', 'Alta', 'Urgente']);
-// Campos que cada rol puede modificar en PATCH /reclamos/:id/estado.
 const camposEstadoTecnico = [
   'estado', 'observaciones', 'finalizadoEn', 'jornadaId', 'comentarioFinalizacion',
   'motivoBloqueo', 'vehiculoId', 'inicioServicio',
 ];
 const camposEstadoGestion = [...camposEstadoTecnico, 'notasCoordinador', 'prioridad', 'fechaProgramada'];
 
-// Un reclamo solo puede asignarse a un técnico existente y activo.
 async function validarTecnico(tecnicoId) {
   const tecnico = tecnicoId ? await usuariosRepository.buscarPorId(tecnicoId, { rolId: 3 }) : null;
   if (!tecnico) return resultado(400, { mensaje: 'El técnico indicado no existe' });
@@ -70,7 +70,7 @@ export const reclamosService = {
     if (!esGestion(usuario)) return resultado(403, { mensaje: 'Solo admin o coordinador pueden eliminar reclamos' });
     const eliminado = await reclamosRepository.eliminar(aId(reclamoId));
     if (!eliminado) return resultado(404, { mensaje: 'Reclamo no encontrado' });
-    await evidenciasService.eliminarDeReclamo(eliminado.id);
+    await imagenesService.eliminar(eliminado.imagenes);
     return resultado(200, eliminado);
   },
 
@@ -97,36 +97,35 @@ export const reclamosService = {
       return resultado(403, { mensaje: 'Solo puedes actualizar reclamos asignados a ti' });
     }
     const cambios = elegir(body, esGestion(usuario) ? camposEstadoGestion : camposEstadoTecnico);
-    // Al reportar un inconveniente, el técnico libera el reclamo para que se reasigne.
+    if (cambios.inicioServicio !== undefined) {
+      if (!esObjeto(cambios.inicioServicio)) return resultado(400, { mensaje: 'El control de inicio no es válido' });
+      cambios.inicioServicio = elegir(cambios.inicioServicio, ['kilometraje', 'litros', 'estado', 'imagenes']);
+      if (cambios.inicioServicio.imagenes !== undefined) {
+        const error = await imagenesService.validarReferencias(cambios.inicioServicio.imagenes, usuario, { maximo: 4 });
+        if (error) return resultado(400, { mensaje: error });
+      }
+    }
     if (cambios.estado === 'Bloqueado' && Object.prototype.hasOwnProperty.call(body, 'tecnicoId') && body.tecnicoId == null) {
       cambios.tecnicoId = null;
     }
     if (cambios.estado && !estadosReclamo.has(cambios.estado)) return resultado(400, { mensaje: 'Estado de reclamo inválido' });
     if (cambios.prioridad && !prioridadesReclamo.has(cambios.prioridad)) return resultado(400, { mensaje: 'Prioridad inválida' });
 
-    // Fotos de evidencia: se validan antes de tocar el reclamo y se guardan aparte.
-    const cantidadActual = reclamo.cantidadEvidencias || 0;
-    const traeEvidencias = Object.prototype.hasOwnProperty.call(body, 'evidencias');
-    if (traeEvidencias) {
-      const error = validarEvidencias(body.evidencias, cantidadActual);
+    const imagenesActuales = reclamo.imagenes || [];
+    const traeImagenes = Object.prototype.hasOwnProperty.call(body, 'imagenes');
+    if (traeImagenes) {
+      const cantidadNueva = Array.isArray(body.imagenes) ? body.imagenes.length : 0;
+      if (imagenesActuales.length + cantidadNueva > MAXIMO_IMAGENES_RECLAMO) {
+        return resultado(400, { mensaje: `Podés adjuntar hasta ${MAXIMO_IMAGENES_RECLAMO} imágenes por reclamo.` });
+      }
+      const error = await imagenesService.validarReferencias(body.imagenes, usuario, { minimo: 1 });
       if (error) return resultado(400, { mensaje: error });
+      cambios.imagenes = [...imagenesActuales, ...body.imagenes];
     }
-    if (cambios.estado === 'Finalizado' && !traeEvidencias && !cantidadActual) {
-      return resultado(400, { mensaje: 'Adjuntá al menos una foto del trabajo para finalizar.' });
+    if (cambios.estado === 'Finalizado' && !(cambios.imagenes || imagenesActuales).length) {
+      return resultado(400, { mensaje: 'Adjuntá al menos una imagen del trabajo para finalizar.' });
     }
-    if (!Object.keys(cambios).length && !traeEvidencias) return resultado(400, { mensaje: 'No hay campos modificables' });
-    if (traeEvidencias) {
-      await evidenciasService.guardar(reclamo.id, body.evidencias, usuario.id);
-      cambios.cantidadEvidencias = cantidadActual + body.evidencias.length;
-    }
+    if (!Object.keys(cambios).length) return resultado(400, { mensaje: 'No hay campos modificables' });
     return resultado(200, await reclamosRepository.actualizar(reclamo.id, cambios));
-  },
-
-  async evidencias(reclamoId, usuario) {
-    const reclamo = await reclamosRepository.buscarPorId(aId(reclamoId));
-    if (!reclamo || (!esGestion(usuario) && reclamo.tecnicoId !== aId(usuario.id))) {
-      return resultado(404, { mensaje: 'Reclamo no encontrado' });
-    }
-    return resultado(200, await evidenciasService.listar(reclamo.id));
   },
 };

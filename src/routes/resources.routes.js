@@ -8,6 +8,7 @@ import { autorizarRoles } from '../middleware/authorize.middleware.js';
 import { vehiculosController } from '../controllers/vehiculos.controller.js';
 import { reclamosController } from '../controllers/reclamos.controller.js';
 import { jornadasController } from '../controllers/jornadas.controller.js';
+import { imagenesController } from '../controllers/imagenes.controller.js';
 
 const router = Router();
 
@@ -44,7 +45,9 @@ router.post('/reclamos', reclamosController.crear);
 router.delete('/reclamos/:id', autorizarRoles(1, 2), reclamosController.eliminar);
 router.patch('/reclamos/:id/asignacion', reclamosController.asignar);
 router.patch('/reclamos/:id/estado', reclamosController.estado);
-router.get('/reclamos/:id/evidencias', reclamosController.evidencias);
+router.post('/imagenes', imagenesController.subir);
+router.get('/imagenes', imagenesController.listar);
+router.get('/imagenes/:id', imagenesController.obtener);
 router.get('/ubicaciones-tecnicos', ubicacionesTecnicos.listar);
 router.patch('/ubicaciones-tecnicos/:tecnicoId', ubicacionesTecnicos.actualizar);
 

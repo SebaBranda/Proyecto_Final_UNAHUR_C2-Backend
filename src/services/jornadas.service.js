@@ -1,4 +1,5 @@
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
+import { imagenesService } from './imagenes.service.js';
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -8,17 +9,7 @@ const elegir = (body, campos) => Object.fromEntries(
     .filter((campo) => Object.prototype.hasOwnProperty.call(body || {}, campo))
     .map((campo) => [campo, body[campo]]),
 );
-const cantidadFotosRequerida = 4;
-
-function validarFotosFinales(fotos) {
-  if (!Array.isArray(fotos) || fotos.length !== cantidadFotosRequerida) {
-    return `Se requieren exactamente ${cantidadFotosRequerida} fotos del vehículo para finalizar la jornada`;
-  }
-  if (fotos.some((foto) => !foto || typeof foto.imagen !== 'string' || !foto.imagen.startsWith('data:image/'))) {
-    return 'Las fotos del vehículo no son válidas';
-  }
-  return null;
-}
+const IMAGENES_CIERRE_JORNADA = 4;
 
 export const jornadasService = {
   async listar(usuario) {
@@ -45,14 +36,21 @@ export const jornadasService = {
     if (!esGestion(usuario) && jornada.tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes finalizar tu propia jornada' });
     }
-    const errorFotos = validarFotosFinales(body?.fotos);
-    if (errorFotos) return resultado(400, { mensaje: errorFotos });
+    const errorImagenes = await imagenesService.validarReferencias(body?.imagenes, usuario, {
+      minimo: IMAGENES_CIERRE_JORNADA,
+      maximo: IMAGENES_CIERRE_JORNADA,
+    });
+    if (errorImagenes) {
+      return resultado(400, {
+        mensaje: errorImagenes.startsWith('Se requieren')
+          ? `Se requieren exactamente ${IMAGENES_CIERRE_JORNADA} imágenes del vehículo para finalizar la jornada.`
+          : errorImagenes,
+      });
+    }
     return resultado(200, await jornadasRepository.actualizar(jornada.id, {
       fin: new Date().toISOString(),
       activa: false,
-      controlFinal: elegir(body, [
-        'kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'foto', 'fotos',
-      ]),
+      controlFinal: elegir(body, ['kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
     }));
   },
 

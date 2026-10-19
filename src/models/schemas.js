@@ -66,7 +66,6 @@ export const Vehiculo = mongoose.model('Vehiculo', new Schema({
   kilometraje: { type: Schema.Types.Mixed, default: {} },
   seguro: { type: Schema.Types.Mixed, default: {} },
   controles: { type: [Schema.Types.Mixed], default: [] },
-  fotosControl: { type: [String], default: [] },
 }, opcionesBase));
 
 export const Reclamo = mongoose.model('Reclamo', new Schema({
@@ -77,16 +76,13 @@ export const Reclamo = mongoose.model('Reclamo', new Schema({
   creadoEn: { type: Date, default: Date.now },
 }, opcionesBase));
 
-// Foto de evidencia de un reclamo. Se guarda aparte del reclamo para que listar
-// reclamos siga siendo liviano. "url" hoy contiene la imagen en base64 (data URL);
-// al pasar a un almacenamiento externo (S3, disco) pasaría a ser una dirección http.
-export const Evidencia = mongoose.model('Evidencia', new Schema({
-  id: { type: Number, required: true, unique: true, index: true },
-  reclamoId: { type: Number, ref: 'Reclamo', required: true, index: true },
+export const Imagen = mongoose.model('Imagen', new Schema({
+  id: { type: String, required: true, unique: true, index: true },
   url: { type: String, required: true },
+  tamano: { type: Number, required: true },
   subidoPor: { type: Number, ref: 'Usuario', required: true },
   creadoEn: { type: Date, default: Date.now },
-}, { versionKey: false }));
+}, { versionKey: false }), 'imagenes');
 
 export const Jornada = mongoose.model('Jornada', new Schema({
   ...recursoBase,

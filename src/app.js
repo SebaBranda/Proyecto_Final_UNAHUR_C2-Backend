@@ -10,7 +10,6 @@ export function crearAplicacion() {
     .map((origen) => origen.trim())
     .filter(Boolean);
 
-  // Los recursos de la API son dinámicos y no deben responder desde caché del navegador.
   app.disable('etag');
   app.use(cors({
     origin: origenesPermitidos.length ? origenesPermitidos : false,
@@ -29,7 +28,7 @@ export function crearAplicacion() {
     }
     next();
   });
-  // Hasta 5 fotos de evidencia en base64 (~600 KB c/u) viajan en el mismo pedido.
+
   app.use(express.json({ limit: '5mb' }));
   app.use('/api', (_req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -52,7 +51,7 @@ export function crearAplicacion() {
 
   app.use((error, _req, res, _next) => {
     if (error.type === 'entity.too.large') {
-      return res.status(413).json({ mensaje: 'Los datos enviados son demasiado grandes. Probá con menos fotos.' });
+      return res.status(413).json({ mensaje: 'Los datos enviados son demasiado grandes. Probá con menos imágenes.' });
     }
     const esJsonInvalido = error instanceof SyntaxError && error.status === 400 && 'body' in error;
     const esValidacionMongoose = error instanceof mongoose.Error.ValidationError;

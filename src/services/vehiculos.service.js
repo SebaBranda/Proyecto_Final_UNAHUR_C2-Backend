@@ -1,5 +1,8 @@
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
+import { imagenesService } from './imagenes.service.js';
+
+const MAXIMO_IMAGENES_CONTROL = 4;
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -18,7 +21,6 @@ const controlesVigentes = (controles = []) => controles.filter((registro) => {
   return Number.isFinite(fecha) && fecha >= limiteHistorial();
 });
 
-// Busca el vehículo y verifica que el técnico solo acceda al que tiene asignado.
 async function buscarPropio(vehiculoId, usuario) {
   const vehiculo = await vehiculosRepository.buscarPorId(aId(vehiculoId));
   if (!vehiculo) return { error: resultado(404, { mensaje: 'Vehículo no encontrado' }) };
@@ -28,7 +30,6 @@ async function buscarPropio(vehiculoId, usuario) {
   return { vehiculo };
 }
 
-// Un vehículo solo puede asignarse a un técnico existente y activo.
 async function validarTecnico(tecnicoId) {
   const tecnico = tecnicoId ? await usuariosRepository.buscarPorId(tecnicoId, { rolId: 3 }) : null;
   if (!tecnico) return resultado(400, { mensaje: 'El técnico indicado no existe' });
@@ -36,7 +37,6 @@ async function validarTecnico(tecnicoId) {
   return null;
 }
 
-// Cada técnico tiene como máximo un vehículo: al asignarle uno, se liberan los demás.
 async function liberarOtrosVehiculos(tecnicoId, vehiculoId) {
   const asignados = await vehiculosRepository.listar({ tecnicoAsignado: tecnicoId });
   await Promise.all(asignados
@@ -88,7 +88,7 @@ export const vehiculosService = {
     const datos = operacion === 'kilometraje'
       ? elegir(body, ['kilometraje'])
       : operacion === 'control'
-        ? elegir(body, ['estado', 'kilometraje', 'fotosControl', 'controles', 'ultimoControl'])
+        ? elegir(body, ['estado', 'kilometraje'])
         : elegir(body, ['patente', 'marca', 'modelo', 'seguro', 'ultimoService', 'detalle', 'enServicio']);
     if (!Object.keys(datos).length) return resultado(400, { mensaje: 'No hay campos modificables' });
     if (datos.kilometraje !== undefined && Number(datos.kilometraje) < Number(vehiculo.kilometraje?.actual)) {
@@ -131,14 +131,21 @@ export const vehiculosService = {
     if (error) return error;
     const kilometros = Number(body?.kilometraje);
     if (!Number.isFinite(kilometros)) return resultado(400, { mensaje: 'El kilometraje es obligatorio' });
+    if (body?.imagenes !== undefined) {
+      const errorImagenes = await imagenesService.validarReferencias(body.imagenes, usuario, {
+        maximo: MAXIMO_IMAGENES_CONTROL,
+      });
+      if (errorImagenes) return resultado(400, { mensaje: errorImagenes });
+    }
     const control = {
-      ...elegir(body, ['kilometraje', 'estado', 'observaciones', 'fotosControl']),
+      ...elegir(body, ['kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
       fechaControl: new Date().toISOString(),
     };
     const controles = controlesVigentes(vehiculo.controles);
+    const vencidos = (vehiculo.controles || []).filter((registro) => !controles.includes(registro));
+    await imagenesService.eliminar(vencidos.flatMap((registro) => registro.imagenes || []));
     return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, {
       kilometraje: { ...vehiculo.kilometraje, actual: kilometros },
-      ...(control.fotosControl ? { fotosControl: control.fotosControl } : {}),
       controles: [...controles, control],
       ultimoControl: control,
     }));

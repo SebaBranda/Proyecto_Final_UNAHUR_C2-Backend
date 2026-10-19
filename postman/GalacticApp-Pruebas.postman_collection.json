@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7e96c906-526c-4e13-9bc1-2306bff7f3d1",
     "name": "GalacticApp - Pruebas de la API",
-    "description": "Pruebas de punta a punta de la API de GalacticApp.\n\nCÓMO USARLA\n- Ejecutá la colección completa con el Runner, en orden: cada carpeta usa datos que crea la anterior.\n- Es autocontenida: crea su propio coordinador, técnico, cliente, vehículo, reclamo y jornada de prueba, y los borra en \"9. Limpieza\".\n- Solo necesita el usuario admin/admin (datos demo con SEED_DEMO_DATA=true).\n- baseUrl apunta al stack Docker (http://localhost:8080). Si corrés solo el backend con npm run dev, cambiala a http://localhost:3000.\n\nTOKENS\n- token: administrador (autenticación por defecto de la colección).\n- tokenCoordinador y tokenTecnico: se usan en los pedidos que prueban esos roles.\n- Los tokens vencen a la hora: si pasó más tiempo, volvé a ejecutar \"1. Autenticación\".",
+    "description": "Pruebas de punta a punta de la API de GalacticApp.\n\nCÓMO USARLA\n- Ejecutá la colección completa con el Runner, en orden: cada carpeta usa datos que crea la anterior.\n- Es autocontenida: crea su propio coordinador, técnico, cliente, vehículo, reclamo, jornada e imágenes de prueba, y los borra en \"9. Limpieza\".\n- Imágenes: se suben con POST /imagenes y los registros guardan solo sus ids en un campo \"imagenes\".\n- Solo necesita el usuario admin/admin (datos demo con SEED_DEMO_DATA=true).\n- baseUrl apunta al stack Docker (http://localhost:8080). Si corrés solo el backend con npm run dev, cambiala a http://localhost:3000.\n\nTOKENS\n- token: administrador (autenticación por defecto de la colección).\n- tokenCoordinador y tokenTecnico: se usan en los pedidos que prueban esos roles.\n- Los tokens vencen a la hora: si pasó más tiempo, volvé a ejecutar \"1. Autenticación\".",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -73,7 +73,31 @@
       "value": ""
     },
     {
-      "key": "fotoPrueba",
+      "key": "imagenesReclamo",
+      "value": "[]"
+    },
+    {
+      "key": "imagenesReclamoCsv",
+      "value": ""
+    },
+    {
+      "key": "imagenReclamoId",
+      "value": ""
+    },
+    {
+      "key": "imagenAjenaId",
+      "value": ""
+    },
+    {
+      "key": "imagenesJornada",
+      "value": "[]"
+    },
+    {
+      "key": "imagenesJornadaIncompletas",
+      "value": "[]"
+    },
+    {
+      "key": "imagenPrueba",
       "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
     }
   ],
@@ -1620,9 +1644,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Reclamo en progreso', function () {",
+                  "pm.test('Reclamo en progreso y sin imágenes completas guardadas', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json().estado).to.eql('En progreso');",
+                  "  const reclamo = pm.response.json();",
+                  "  pm.expect(reclamo.estado).to.eql('En progreso');",
+                  "  pm.expect(reclamo.inicioServicio).to.eql({ kilometraje: 1500, estado: 'Activo' });",
                   "});"
                 ]
               }
@@ -1637,9 +1663,10 @@
               }
             ],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "description": "inicioServicio guarda solo kilometraje, litros, estado e ids de imágenes: cualquier otro campo (por ejemplo una imagen completa) se descarta.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"En progreso\",\n  \"vehiculoId\": {{vehiculoId}}\n}",
+              "raw": "{\n  \"estado\": \"En progreso\",\n  \"vehiculoId\": {{vehiculoId}},\n  \"inicioServicio\": {\n    \"kilometraje\": 1500,\n    \"estado\": \"Activo\",\n    \"foto\": \"{{imagenPrueba}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1739,11 +1766,62 @@
       ]
     },
     {
-      "name": "6. Evidencias (fotos)",
-      "description": "Las fotos viajan en base64 (data URL) al finalizar el reclamo: JPG, PNG o WebP, hasta 600 KB cada una y hasta 5 por reclamo. Se guardan aparte y se consultan con GET /reclamos/:id/evidencias.",
+      "name": "6. Imágenes",
+      "description": "Las imágenes se suben con POST /imagenes (data URL en base64: JPG, PNG o WebP, hasta 600 KB cada una y hasta 6 por pedido) y devuelven sus ids. Reclamos, jornadas y vehículos guardan solo esos ids en su campo \"imagenes\". Para verlas: GET /imagenes?ids=a,b,c.",
       "item": [
         {
-          "name": "PATCH FINALIZAR SIN FOTOS (DEBE RECHAZAR)",
+          "name": "POST SUBIR IMAGENES (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve un id por imagen', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const imagenes = pm.response.json();",
+                  "  pm.expect(imagenes).to.have.lengthOf(2);",
+                  "  pm.expect(imagenes[0].id).to.match(/^[0-9a-f-]{36}$/);",
+                  "  pm.collectionVariables.set('imagenesReclamo', JSON.stringify(imagenes.map((imagen) => imagen.id)));",
+                  "  pm.collectionVariables.set('imagenReclamoId', imagenes[0].id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "description": "imagenPrueba es una imagen PNG de 1x1 en base64. En la app, el navegador comprime cada imagen a ~200 KB antes de enviarla.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\"{{imagenPrueba}}\", \"{{imagenPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST SUBIR SIN IMAGENES",
           "event": [
             {
               "listen": "test",
@@ -1752,7 +1830,289 @@
                 "exec": [
                   "pm.test('Responde 400 con mensaje claro', function () {",
                   "  pm.response.to.have.status(400);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Adjuntá al menos una foto del trabajo para finalizar.\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Enviá al menos una imagen.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST SUBIR ALGO QUE NO ES IMAGEN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La imagen 1 no es válida. Usá imágenes JPG, PNG o WebP.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\n    \"esto no es una imagen\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST SUBIR MÁS DE 6 IMAGENES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Podés subir hasta 6 imágenes por vez.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET IMAGENES POR IDS",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('imagenesReclamoCsv', JSON.parse(pm.collectionVariables.get('imagenesReclamo')).join(','));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve las 2 imágenes con su url', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const imagenes = pm.response.json();",
+                  "  pm.expect(imagenes).to.have.lengthOf(2);",
+                  "  pm.expect(imagenes[0]).to.have.all.keys('id', 'url', 'creadoEn');",
+                  "  pm.expect(imagenes[0].url).to.match(/^data:image\\//);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/imagenes?ids={{imagenesReclamoCsv}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET IMAGEN POR ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve la imagen', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('imagenReclamoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/imagenes/{{imagenReclamoId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET IMAGEN INEXISTENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Imagen no encontrada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/imagenes/no-existe"
+          }
+        },
+        {
+          "name": "POST SUBIR IMAGEN (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Imagen del coordinador subida', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('imagenAjenaId', pm.response.json()[0].id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\"{{imagenPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR RECLAMO SIN IMAGENES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Adjuntá al menos una imagen del trabajo para finalizar.\");",
                   "});"
                 ]
               }
@@ -1789,7 +2149,7 @@
           }
         },
         {
-          "name": "PATCH FINALIZAR CON ARCHIVO QUE NO ES IMAGEN",
+          "name": "PATCH FINALIZAR CON IMAGEN DE OTRO USUARIO",
           "event": [
             {
               "listen": "test",
@@ -1798,7 +2158,7 @@
                 "exec": [
                   "pm.test('Responde 400 con mensaje claro', function () {",
                   "  pm.response.to.have.status(400);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La foto 1 no es válida. Usá fotos JPG, PNG o WebP.\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Solo podés usar imágenes que subiste vos.\");",
                   "});"
                 ]
               }
@@ -1815,7 +2175,7 @@
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\",\n  \"evidencias\": [\n    \"esto no es una imagen\"\n  ]\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"imagenes\": [\"{{imagenAjenaId}}\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1835,7 +2195,7 @@
           }
         },
         {
-          "name": "PATCH FINALIZAR CON MÁS DE 5 FOTOS",
+          "name": "PATCH FINALIZAR CON IMAGEN INEXISTENTE",
           "event": [
             {
               "listen": "test",
@@ -1844,7 +2204,7 @@
                 "exec": [
                   "pm.test('Responde 400 con mensaje claro', function () {",
                   "  pm.response.to.have.status(400);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Podés adjuntar hasta 5 fotos por reclamo.\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Alguna de las imágenes no existe. Volvé a cargarlas.\");",
                   "});"
                 ]
               }
@@ -1861,7 +2221,7 @@
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"evidencias\": [\"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\", \"{{fotoPrueba}}\"]\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"imagenes\": [\n    \"no-existe\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1881,19 +2241,18 @@
           }
         },
         {
-          "name": "PATCH FINALIZAR RECLAMO CON FOTOS (TECNICO)",
+          "name": "PATCH FINALIZAR RECLAMO CON IMAGENES (TECNICO)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Reclamo finalizado con 2 fotos', function () {",
+                  "pm.test('Reclamo finalizado con los ids de sus 2 imágenes', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const reclamo = pm.response.json();",
                   "  pm.expect(reclamo.estado).to.eql('Finalizado');",
-                  "  pm.expect(reclamo.cantidadEvidencias).to.eql(2);",
-                  "  pm.expect(reclamo).to.not.have.property('evidencias');",
+                  "  pm.expect(reclamo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesReclamo')));",
                   "});"
                 ]
               }
@@ -1908,10 +2267,9 @@
               }
             ],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
-            "description": "fotoPrueba es una imagen PNG de 1x1 en base64. En la app, el navegador comprime cada foto a ~200 KB antes de enviarla.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"evidencias\": [\"{{fotoPrueba}}\", \"{{fotoPrueba}}\"]\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"imagenes\": {{imagenesReclamo}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1931,28 +2289,39 @@
           }
         },
         {
-          "name": "GET FOTOS DEL RECLAMO (TECNICO)",
+          "name": "PATCH AGREGAR MÁS DE 5 IMAGENES AL RECLAMO",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Devuelve las 2 fotos como { id, url }', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const fotos = pm.response.json();",
-                  "  pm.expect(fotos).to.have.lengthOf(2);",
-                  "  pm.expect(fotos[0]).to.have.all.keys('id', 'url', 'creadoEn');",
-                  "  pm.expect(fotos[0].url).to.match(/^data:image\\//);",
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Podés adjuntar hasta 5 imágenes por reclamo.\");",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/evidencias",
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\n    \"a\",\n    \"b\",\n    \"c\",\n    \"d\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1966,49 +2335,17 @@
           }
         },
         {
-          "name": "GET FOTOS DEL RECLAMO (COORDINADOR)",
+          "name": "GET RECLAMOS SOLO TRAE LOS IDS DE LAS IMAGENES",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('El coordinador también ve las fotos', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.have.lengthOf(2);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/evidencias",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCoordinador}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET RECLAMOS NO INCLUYE LAS FOTOS",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('La lista solo informa la cantidad, no las fotos', function () {",
+                  "pm.test('La lista trae los ids, no las imágenes', function () {",
                   "  const reclamo = pm.response.json().find((r) => r.id === Number(pm.collectionVariables.get('reclamoId')));",
-                  "  pm.expect(reclamo.cantidadEvidencias).to.eql(2);",
-                  "  pm.expect(reclamo).to.not.have.property('evidencias');",
+                  "  pm.expect(reclamo.imagenes).to.have.lengthOf(2);",
+                  "  pm.expect(JSON.stringify(reclamo)).to.not.include('data:image');",
                   "});"
                 ]
               }
@@ -2034,7 +2371,7 @@
     },
     {
       "name": "7. Jornadas",
-      "description": "El técnico inicia y finaliza su propia jornada de trabajo.",
+      "description": "El técnico inicia y finaliza su propia jornada. Para finalizarla se exigen exactamente 4 imágenes del vehículo (subidas antes con POST /imagenes); los mismos ids se registran en el control del vehículo.",
       "item": [
         {
           "name": "POST INICIAR JORNADA (TECNICO)",
@@ -2118,18 +2455,65 @@
           }
         },
         {
-          "name": "PATCH FINALIZAR JORNADA (TECNICO)",
+          "name": "POST SUBIR 4 IMAGENES DEL VEHICULO (TECNICO)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Jornada finalizada', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const jornada = pm.response.json();",
-                  "  pm.expect(jornada.activa).to.eql(false);",
-                  "  pm.expect(jornada.fin).to.be.a('string');",
+                  "pm.test('4 imágenes subidas', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const ids = pm.response.json().map((imagen) => imagen.id);",
+                  "  pm.expect(ids).to.have.lengthOf(4);",
+                  "  pm.collectionVariables.set('imagenesJornada', JSON.stringify(ids));",
+                  "  pm.collectionVariables.set('imagenesJornadaIncompletas', JSON.stringify(ids.slice(0, 3)));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR JORNADA CON 3 IMAGENES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requieren exactamente 4 imágenes del vehículo para finalizar la jornada.\");",
                   "});"
                 ]
               }
@@ -2146,7 +2530,7 @@
             "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometrajeFinal\": 1540,\n  \"observaciones\": \"Fin de jornada\"\n}",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornadaIncompletas}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2159,6 +2543,135 @@
                 {
                   "key": "token",
                   "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH CONTROL DEL VEHICULO CON IMAGENES (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Control registrado con los ids de las imágenes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const ultimo = pm.response.json().controles.at(-1);",
+                  "  pm.expect(ultimo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesJornada')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
+            "description": "Al cerrar la jornada, la app registra primero el control del vehículo y después finaliza la jornada, con los mismos ids de imagen.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jornada finalizada con sus 4 imágenes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const jornada = pm.response.json();",
+                  "  pm.expect(jornada.activa).to.eql(false);",
+                  "  pm.expect(jornada.fin).to.be.a('string');",
+                  "  pm.expect(jornada.controlFinal.imagenes).to.have.lengthOf(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"observaciones\": \"Fin de jornada\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET VEHICULOS SOLO TRAE LOS IDS DE LAS IMAGENES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La lista de vehículos no incluye las imágenes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.text()).to.not.include('data:image');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
                   "type": "string"
                 }
               ]
@@ -2388,6 +2901,28 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}"
+          }
+        },
+        {
+          "name": "GET IMAGEN DEL RECLAMO ELIMINADO (SE BORRÓ CON ÉL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Imagen no encontrada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/imagenes/{{imagenReclamoId}}"
           }
         },
         {
