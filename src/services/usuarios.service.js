@@ -4,13 +4,22 @@ import {
   TODOS_LOS_CAMPOS_PERFIL,
 } from '../config/perfiles.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
+import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
+import { reclamosRepository } from '../repositories/reclamos.repository.js';
+import { clientesRepository } from '../repositories/clientes.repository.js';
+import { ubicacionesRepository } from '../repositories/ubicaciones.repository.js';
+import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { hashPassword } from './password.service.js';
 
 export const usuariosService = crearServicioUsuarios();
 
 export const tecnicosService = {
-  listar({ usuario } = {}) {
-    return usuariosService.listar({ usuario, rolId: 3 });
+  // Para admin y coordinador cada técnico trae todo lo que muestran el mapa, la pantalla
+  // Técnicos y el rendimiento del panel: así esas pantallas hacen un solo pedido.
+  async listar({ usuario, usuarioAutenticado } = {}) {
+    const resultado = await usuariosService.listar({ usuario, rolId: 3 });
+    if (![1, 2].includes(usuarioAutenticado?.rolId)) return resultado;
+    return respuesta(200, await tecnicosConDetalle(resultado.body));
   },
   obtener(id) {
     return usuariosService.obtener(id, { rolId: 3 });
@@ -95,7 +104,12 @@ function crearServicioUsuarios() {
       const visibles = alcance.id === undefined
         ? registros
         : registros.filter((registro) => registro.id === alcance.id);
-      return respuesta(200, visibles.map(serializarUsuario));
+      return respuesta(200, await conVehiculo(visibles.map(serializarUsuario)));
+    },
+
+    // Totales para el panel: los cuenta Mongo, no se traen los usuarios.
+    async resumen() {
+      return respuesta(200, { registrados: await usuariosRepository.contar() });
     },
 
     async obtener(idParametro, { rolId, usuarioAutenticado } = {}) {
@@ -108,7 +122,7 @@ function crearServicioUsuarios() {
       }
       const registro = await usuariosRepository.buscarPorId(id, { rolId: rolId ?? alcance.rolId });
       if (!registro) return respuesta(404, { mensaje: 'Usuario no encontrado' });
-      return respuesta(200, serializarUsuario(registro));
+      return respuesta(200, (await conVehiculo([serializarUsuario(registro)]))[0]);
     },
 
     async crear(cuerpo, { rolId: rolForzado } = {}) {
@@ -184,6 +198,75 @@ function crearServicioUsuarios() {
       });
     },
   };
+}
+
+// Vehículo sin el historial de controles: el listado no lo muestra.
+const vehiculoResumido = (vehiculo) => {
+  if (!vehiculo) return null;
+  const { controles, ...datos } = vehiculo;
+  return datos;
+};
+
+// Agrega a cada técnico su vehículo asignado.
+async function conVehiculo(usuarios) {
+  if (!usuarios.some((usuario) => usuario.rolId === 3)) return usuarios;
+  const vehiculos = await vehiculosRepository.listar({ tecnicoAsignado: { $ne: null } });
+  return usuarios.map((usuario) => (usuario.rolId === 3 ? {
+    ...usuario,
+    vehiculo: vehiculoResumido(vehiculos.find((vehiculo) => vehiculo.tecnicoAsignado === usuario.id)),
+  } : usuario));
+}
+
+const horasDeJornada = (jornada) => (jornada.fin
+  ? (new Date(jornada.fin) - new Date(jornada.inicio)) / 3600000
+  : 0);
+
+// Agrega a cada técnico: estado (Activo, Asignado o Libre), el reclamo en curso o el próximo
+// asignado con su cliente, ubicación, paradas para el mapa y rendimiento.
+// El vehículo ya viene de usuariosService.listar.
+async function tecnicosConDetalle(tecnicos) {
+  const [reclamos, clientes, ubicaciones, jornadas] = await Promise.all([
+    reclamosRepository.listar(),
+    clientesRepository.listar(),
+    ubicacionesRepository.listar(),
+    jornadasRepository.listar({ fin: { $ne: null } }),
+  ]);
+  const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
+  const fechaDeOrden = (reclamo) => new Date(reclamo.fechaProgramada || reclamo.creadoEn || 0);
+
+  return tecnicos.map((tecnico) => {
+    const propios = reclamos.filter((reclamo) => reclamo.tecnicoId === tecnico.id);
+    const reclamoEnCurso = propios.find((reclamo) => reclamo.estado === 'En progreso') || null;
+    const reclamoAsignado = propios.find((reclamo) => !['Finalizado', 'En progreso'].includes(reclamo.estado)) || null;
+    const cliente = clientesPorId.get((reclamoEnCurso || reclamoAsignado)?.clienteId);
+    return {
+      ...tecnico,
+      estado: reclamoEnCurso ? 'Activo' : reclamoAsignado ? 'Asignado' : 'Libre',
+      reclamoEnCurso,
+      reclamoAsignado,
+      cliente: cliente ? { id: cliente.id, nombre: cliente.nombre } : null,
+      ubicacion: ubicaciones.find((ubicacion) => ubicacion.tecnicoId === tecnico.id) || null,
+      // Domicilios de sus servicios en orden, para dibujar el recorrido en el mapa.
+      recorrido: propios
+        .filter((reclamo) => reclamo.estado !== 'Bloqueado')
+        .sort((primero, segundo) => fechaDeOrden(primero) - fechaDeOrden(segundo))
+        .map((reclamo) => {
+          const coordenadas = clientesPorId.get(reclamo.clienteId)?.coordenadas;
+          return coordenadas ? {
+            reclamoId: reclamo.id,
+            tipo: reclamo.tipo,
+            latitud: coordenadas.latitud,
+            longitud: coordenadas.longitud,
+          } : null;
+        })
+        .filter(Boolean),
+      trabajos: propios.filter((reclamo) => reclamo.estado === 'Finalizado').length,
+      horas: jornadas
+        .filter((jornada) => jornada.tecnicoId === tecnico.id)
+        .reduce((total, jornada) => total + horasDeJornada(jornada), 0)
+        .toFixed(1),
+    };
+  });
 }
 
 function alcanceUsuarios(usuario) {

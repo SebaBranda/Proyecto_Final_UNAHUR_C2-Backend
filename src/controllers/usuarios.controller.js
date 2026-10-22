@@ -6,6 +6,11 @@ import {
 export const usuariosCrud = crearControlador(usuariosService);
 export const tecnicosCrud = crearControlador(tecnicosService);
 
+// Totales de usuarios para el panel del administrador.
+export async function resumenUsuarios(req, res) {
+  return responder(res, await usuariosService.resumen());
+}
+
 function crearControlador(service) {
   return {
     async listar(req, res) {

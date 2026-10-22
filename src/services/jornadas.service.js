@@ -1,4 +1,5 @@
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
+import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { imagenesService } from './imagenes.service.js';
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
@@ -14,7 +15,18 @@ const IMAGENES_CIERRE_JORNADA = 4;
 export const jornadasService = {
   async listar(usuario) {
     const filtro = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
-    return resultado(200, await jornadasRepository.listar(filtro));
+    const jornadas = await jornadasRepository.listar(filtro);
+    // Servicios finalizados en cada jornada (solo los datos que muestra el resumen).
+    const finalizados = await reclamosRepository.listar({
+      estado: 'Finalizado',
+      jornadaId: { $in: jornadas.map((jornada) => jornada.id) },
+    });
+    return resultado(200, jornadas.map((jornada) => ({
+      ...jornada,
+      servicios: finalizados
+        .filter((reclamo) => reclamo.jornadaId === jornada.id)
+        .map(({ id, tipo, finalizadoEn, fechaProgramada, creadoEn }) => ({ id, tipo, finalizadoEn, fechaProgramada, creadoEn })),
+    })));
   },
 
   async crear(body, usuario) {

@@ -603,6 +603,60 @@
           }
         },
         {
+          "name": "GET RESUMEN DE USUARIOS (PANEL ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve solo el total de usuarios', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.all.keys('registrados');",
+                  "  pm.expect(pm.response.json().registrados).to.be.a('number').above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/resumen"
+          }
+        },
+        {
+          "name": "GET RESUMEN DE USUARIOS COMO COORDINADOR (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rechazado por rol\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/resumen",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET USUARIOS COMO TECNICO (SOLO SE VE A SÍ MISMO)",
           "event": [
             {
@@ -968,6 +1022,96 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "GET VEHICULOS TRAEN SU TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cada vehículo trae su técnico adentro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const vehiculo = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(vehiculo.tecnico.id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.expect(vehiculo.tecnico).to.have.property('nombre');",
+                  "  pm.response.json().filter((item) => item.tecnicoAsignado == null).forEach((item) => pm.expect(item.tecnico).to.eql(null));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos"
+          }
+        },
+        {
+          "name": "GET USUARIO TECNICO TRAE SU VEHICULO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico trae su vehículo adentro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(pm.response.json().vehiculo).to.not.have.property('controles');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+          }
+        },
+        {
+          "name": "POST LOGIN TECNICO TRAE SU VEHICULO Y SU JORNADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El login del técnico trae su vehículo y su jornada activa', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(respuesta).to.have.property('jornadaActiva');",
+                  "  pm.collectionVariables.set('tokenTecnico', respuesta.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{tecnicoUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
             }
           }
         },
@@ -1512,6 +1656,131 @@
           }
         },
         {
+          "name": "GET RECLAMOS TRAEN CLIENTE Y TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cada reclamo trae su cliente y su técnico adentro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const reclamo = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('reclamoId')));",
+                  "  pm.expect(reclamo.cliente.id).to.eql(Number(pm.collectionVariables.get('clienteId')));",
+                  "  pm.expect(reclamo.tecnico.id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.expect(reclamo.tecnico).to.not.have.property('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN DE RECLAMOS (PANEL ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve solo los totales', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.all.keys('pendientes', 'serviciosGestionados');",
+                  "  pm.expect(pm.response.json().pendientes).to.be.a('number').above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/resumen"
+          }
+        },
+        {
+          "name": "GET RESUMEN DE RECLAMOS COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rechazado por rol\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/resumen",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET TECNICOS CON SU ESTADO (MAPA Y PANEL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cada técnico trae estado, reclamo, vehículo y rendimiento', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnico = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.expect(tecnico.estado).to.eql('Asignado');",
+                  "  pm.expect(tecnico.reclamoAsignado.id).to.eql(Number(pm.collectionVariables.get('reclamoId')));",
+                  "  pm.expect(tecnico.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(tecnico).to.include.keys('ubicacion', 'recorrido', 'trabajos', 'horas');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/tecnicos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "PATCH NOTAS DEL COORDINADOR",
           "event": [
             {
@@ -1673,6 +1942,73 @@
                 }
               }
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECLAMOS EN CURSO (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Solo trae sus reclamos en progreso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const reclamos = pm.response.json();",
+                  "  const reclamoId = Number(pm.collectionVariables.get('reclamoId'));",
+                  "  pm.expect(reclamos.map((reclamo) => reclamo.id)).to.include(reclamoId);",
+                  "  reclamos.forEach((reclamo) => pm.expect(reclamo.estado).to.eql('En progreso'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?estado=En progreso",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECLAMOS CON ESTADO INVÁLIDO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Estado de reclamo inválido\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?estado=Cualquiera",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2647,6 +2983,39 @@
           }
         },
         {
+          "name": "GET JORNADAS TRAEN SUS SERVICIOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cada jornada trae la lista de sus servicios finalizados', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const jornada = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('jornadaId')));",
+                  "  pm.expect(jornada.servicios).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET VEHICULOS SOLO TRAE LOS IDS DE LAS IMAGENES",
           "event": [
             {
@@ -2901,28 +3270,6 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}"
-          }
-        },
-        {
-          "name": "GET IMAGEN DEL RECLAMO ELIMINADO (SE BORRÓ CON ÉL)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Responde 404 con mensaje claro', function () {",
-                  "  pm.response.to.have.status(404);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Imagen no encontrada\");",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/imagenes/{{imagenReclamoId}}"
           }
         },
         {

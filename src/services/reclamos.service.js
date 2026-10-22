@@ -23,6 +23,32 @@ const camposEstadoTecnico = [
 ];
 const camposEstadoGestion = [...camposEstadoTecnico, 'notasCoordinador', 'prioridad', 'fechaProgramada'];
 
+// Datos del técnico que viajan dentro de cada reclamo.
+const tecnicoResumido = (tecnico) => (tecnico ? {
+  id: tecnico.id,
+  nombre: tecnico.nombre,
+  usuario: tecnico.usuario,
+  email: tecnico.perfil?.email,
+  telefono: tecnico.perfil?.telefono,
+  activo: tecnico.activo !== false,
+} : null);
+
+// Agrega a cada reclamo su cliente y su técnico, así la pantalla no los pide aparte.
+async function conRelaciones(reclamos) {
+  const [clientes, tecnicos] = await Promise.all([
+    clientesRepository.listar(),
+    usuariosRepository.listar({ rolId: 3 }),
+  ]);
+  const clientesPorId = new Map(clientes.map(({ passwordHash, contrasena, ...cliente }) => [cliente.id, cliente]));
+  const tecnicosPorId = new Map(tecnicos.map((tecnico) => [tecnico.id, tecnico]));
+  return reclamos.map((reclamo) => ({
+    ...reclamo,
+    cliente: clientesPorId.get(reclamo.clienteId) || null,
+    tecnico: tecnicoResumido(tecnicosPorId.get(reclamo.tecnicoId)),
+  }));
+}
+const unoConRelaciones = async (reclamo) => (await conRelaciones([reclamo]))[0];
+
 async function validarTecnico(tecnicoId) {
   const tecnico = tecnicoId ? await usuariosRepository.buscarPorId(tecnicoId, { rolId: 3 }) : null;
   if (!tecnico) return resultado(400, { mensaje: 'El técnico indicado no existe' });
@@ -31,9 +57,25 @@ async function validarTecnico(tecnicoId) {
 }
 
 export const reclamosService = {
-  async listar(usuario) {
-    const filtro = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
-    return resultado(200, await reclamosRepository.listar(filtro));
+  // estado (opcional): devuelve solo los reclamos en ese estado, por ejemplo 'En progreso'.
+  async listar(usuario, { estado } = {}) {
+    if (estado !== undefined && !estadosReclamo.has(estado)) {
+      return resultado(400, { mensaje: 'Estado de reclamo inválido' });
+    }
+    const filtro = {
+      ...(esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) }),
+      ...(estado ? { estado } : {}),
+    };
+    return resultado(200, await conRelaciones(await reclamosRepository.listar(filtro)));
+  },
+
+  // Totales para el panel: los cuenta Mongo, no se traen los reclamos.
+  async resumen() {
+    const [pendientes, serviciosGestionados] = await Promise.all([
+      reclamosRepository.contar({ estado: { $ne: 'Finalizado' } }),
+      reclamosRepository.contar({ $or: [{ esOrden: true }, { tipo: { $in: ['Instalación', 'Baja de servicio'] } }] }),
+    ]);
+    return resultado(200, { pendientes, serviciosGestionados });
   },
 
   async crear(body, usuario) {
@@ -53,7 +95,7 @@ export const reclamosService = {
       const error = await validarTecnico(tecnicoId);
       if (error) return error;
     }
-    return resultado(201, await reclamosRepository.crear({
+    return resultado(201, await unoConRelaciones(await reclamosRepository.crear({
       ...elegir(body, ['descripcion', 'fechaProgramada', 'ubicacion']),
       clienteId: cliente.id,
       tipo: body.tipo.trim(),
@@ -63,14 +105,13 @@ export const reclamosService = {
       tecnicoId,
       estado: tecnicoId ? 'Asignado' : 'Abierto',
       creadoEn: new Date().toISOString(),
-    }));
+    })));
   },
 
   async eliminar(reclamoId, usuario) {
     if (!esGestion(usuario)) return resultado(403, { mensaje: 'Solo admin o coordinador pueden eliminar reclamos' });
     const eliminado = await reclamosRepository.eliminar(aId(reclamoId));
     if (!eliminado) return resultado(404, { mensaje: 'Reclamo no encontrado' });
-    await imagenesService.eliminar(eliminado.imagenes);
     return resultado(200, eliminado);
   },
 
@@ -84,10 +125,10 @@ export const reclamosService = {
       const error = await validarTecnico(tecnicoId);
       if (error) return error;
     }
-    return resultado(200, await reclamosRepository.actualizar(reclamo.id, {
+    return resultado(200, await unoConRelaciones(await reclamosRepository.actualizar(reclamo.id, {
       tecnicoId,
       estado: tecnicoId ? 'Asignado' : 'Abierto',
-    }));
+    })));
   },
 
   async estado(reclamoId, body, usuario) {
@@ -126,6 +167,6 @@ export const reclamosService = {
       return resultado(400, { mensaje: 'Adjuntá al menos una imagen del trabajo para finalizar.' });
     }
     if (!Object.keys(cambios).length) return resultado(400, { mensaje: 'No hay campos modificables' });
-    return resultado(200, await reclamosRepository.actualizar(reclamo.id, cambios));
+    return resultado(200, await unoConRelaciones(await reclamosRepository.actualizar(reclamo.id, cambios)));
   },
 };

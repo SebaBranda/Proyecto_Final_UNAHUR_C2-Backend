@@ -21,6 +21,26 @@ const controlesVigentes = (controles = []) => controles.filter((registro) => {
   return Number.isFinite(fecha) && fecha >= limiteHistorial();
 });
 
+// Datos del técnico que viajan dentro de cada vehículo.
+const tecnicoResumido = (tecnico) => (tecnico ? {
+  id: tecnico.id,
+  nombre: tecnico.nombre,
+  usuario: tecnico.usuario,
+  activo: tecnico.activo !== false,
+} : null);
+
+// Agrega a cada vehículo su técnico asignado (un solo pedido a la base para todos).
+async function conTecnico(vehiculos) {
+  const ids = [...new Set(vehiculos.map((vehiculo) => vehiculo.tecnicoAsignado).filter(Boolean))];
+  const tecnicos = ids.length ? await usuariosRepository.listar({ rolId: 3 }) : [];
+  const porId = new Map(tecnicos.map((tecnico) => [tecnico.id, tecnico]));
+  return vehiculos.map((vehiculo) => ({
+    ...vehiculo,
+    tecnico: tecnicoResumido(porId.get(vehiculo.tecnicoAsignado)),
+  }));
+}
+const unoConTecnico = async (vehiculo) => (await conTecnico([vehiculo]))[0];
+
 async function buscarPropio(vehiculoId, usuario) {
   const vehiculo = await vehiculosRepository.buscarPorId(aId(vehiculoId));
   if (!vehiculo) return { error: resultado(404, { mensaje: 'Vehículo no encontrado' }) };
@@ -48,10 +68,10 @@ export const vehiculosService = {
   async listar(usuario) {
     const filtro = esGestion(usuario) ? {} : { tecnicoAsignado: aId(usuario.id) };
     const vehiculos = await vehiculosRepository.listar(filtro);
-    return resultado(200, vehiculos.map((vehiculo) => ({
+    return resultado(200, await conTecnico(vehiculos.map((vehiculo) => ({
       ...vehiculo,
       controles: controlesVigentes(vehiculo.controles),
-    })));
+    }))));
   },
 
   async crear(body, usuario) {
@@ -69,7 +89,7 @@ export const vehiculosService = {
       tecnicoAsignado: tecnicoId,
     });
     if (tecnicoId) await liberarOtrosVehiculos(tecnicoId, creado.id);
-    return resultado(201, creado);
+    return resultado(201, await unoConTecnico(creado));
   },
 
   async eliminar(vehiculoId, usuario) {
@@ -94,7 +114,7 @@ export const vehiculosService = {
     if (datos.kilometraje !== undefined && Number(datos.kilometraje) < Number(vehiculo.kilometraje?.actual)) {
       return resultado(400, { mensaje: 'El kilometraje debe ser válido y no menor al actual.' });
     }
-    return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, datos));
+    return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, datos)));
   },
 
   async asignar(vehiculoId, body, usuario) {
@@ -108,10 +128,10 @@ export const vehiculosService = {
       if (errorTecnico) return errorTecnico;
       await liberarOtrosVehiculos(tecnicoId, vehiculo.id);
     }
-    return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, {
+    return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, {
       tecnicoAsignado: tecnicoId,
       disponible: true,
-    }));
+    })));
   },
 
   async kilometraje(vehiculoId, body, usuario) {
@@ -121,9 +141,9 @@ export const vehiculosService = {
     if (!Number.isFinite(valor) || valor < Number(vehiculo.kilometraje?.actual)) {
       return resultado(400, { mensaje: 'El kilometraje debe ser válido y no menor al actual.' });
     }
-    return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, {
+    return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, {
       kilometraje: { ...vehiculo.kilometraje, actual: valor, actualizadoEn: new Date().toISOString() },
-    }));
+    })));
   },
 
   async control(vehiculoId, body, usuario) {
@@ -142,12 +162,10 @@ export const vehiculosService = {
       fechaControl: new Date().toISOString(),
     };
     const controles = controlesVigentes(vehiculo.controles);
-    const vencidos = (vehiculo.controles || []).filter((registro) => !controles.includes(registro));
-    await imagenesService.eliminar(vencidos.flatMap((registro) => registro.imagenes || []));
-    return resultado(200, await vehiculosRepository.actualizar(vehiculo.id, {
+    return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, {
       kilometraje: { ...vehiculo.kilometraje, actual: kilometros },
       controles: [...controles, control],
       ultimoControl: control,
-    }));
+    })));
   },
 };

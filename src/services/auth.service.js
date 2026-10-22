@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
+import { jornadasRepository } from '../repositories/jornadas.repository.js';
+import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { verifyPassword } from './password.service.js';
 import { buscarRol } from '../config/roles.js';
 import { serializarUsuario } from './usuarios.service.js';
@@ -44,7 +46,22 @@ export async function iniciarSesion({ usuario, contrasena } = {}) {
     token,
     tokenType: 'Bearer',
     expiresIn: TOKEN_LIFETIME_SECONDS,
+    ...(rol.id === 3 ? await datosDelTecnico(registro.id) : {}),
   });
+}
+
+// El técnico necesita en todas sus pantallas su jornada activa (indicador del menú) y su
+// vehículo (aviso semanal de kilometraje): vienen en el login para no pedirlos en cada pantalla.
+async function datosDelTecnico(tecnicoId) {
+  const [jornadas, vehiculos] = await Promise.all([
+    jornadasRepository.listar({ tecnicoId, activa: true }),
+    vehiculosRepository.listar({ tecnicoAsignado: tecnicoId }),
+  ]);
+  const { controles, ...vehiculo } = vehiculos[0] || {};
+  return {
+    jornadaActiva: jornadas[0] || null,
+    vehiculo: vehiculos[0] ? vehiculo : null,
+  };
 }
 
 function credencialesValidas(usuario, contrasena) {

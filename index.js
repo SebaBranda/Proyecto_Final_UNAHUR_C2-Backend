@@ -5,7 +5,6 @@ import path from 'node:path';
 import { crearAplicacion } from './src/app.js';
 import { conectarBaseDeDatos } from './src/config/database.js';
 import { sembrarDatosIniciales } from './src/config/seed.js';
-import { imagenesService } from './src/services/imagenes.service.js';
 import { generate } from 'selfsigned';
 
 dotenv.config();
@@ -22,7 +21,6 @@ async function iniciarServidor() {
     throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
   }
   await sembrarDatosIniciales();
-  programarLimpiezaDeImagenes();
 
   if (process.env.HTTPS_ENABLED === 'true') {
     const httpsOptions = await cargarCertificados();
@@ -41,14 +39,6 @@ iniciarServidor().catch((error) => {
   console.error('No se pudo iniciar GalacticApp:', error);
   process.exitCode = 1;
 });
-
-// Una vez por hora borra las imágenes que ningún registro usa.
-function programarLimpiezaDeImagenes() {
-  const limpiar = () => imagenesService.limpiarSinUso()
-    .then((cantidad) => { if (cantidad) console.log(`Se eliminaron ${cantidad} imágenes sin uso.`); })
-    .catch((error) => console.error('No se pudieron limpiar las imágenes sin uso:', error));
-  setInterval(limpiar, 60 * 60 * 1000).unref();
-}
 
 async function cargarCertificados() {
   const keyPath = path.resolve(process.env.HTTPS_KEY_PATH || 'certs/localhost.key');

@@ -5,6 +5,10 @@ class ReclamosRepository {
     return Reclamo.find(filtro).select('-_id -__v').lean();
   }
 
+  async contar(filtro = {}) {
+    return Reclamo.countDocuments(filtro);
+  }
+
   async buscarPorId(id) {
     return Reclamo.findOne({ id }).select('-_id -__v').lean();
   }

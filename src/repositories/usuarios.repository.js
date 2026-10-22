@@ -21,6 +21,10 @@ class UsuariosRepository {
     return Promise.all(registros.map((registro) => this.combinarPerfil(registro)));
   }
 
+  async contar(filtro = {}) {
+    return Usuario.countDocuments(filtro);
+  }
+
   async buscarPorId(id, { rolId } = {}) {
     const filtro = { id };
     if (rolId) filtro.rolId = rolId;
