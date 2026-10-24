@@ -41,6 +41,23 @@ async function conTecnico(vehiculos) {
 }
 const unoConTecnico = async (vehiculo) => (await conTecnico([vehiculo]))[0];
 
+const esTextoOVacio = (valor) => valor == null || typeof valor === 'string';
+const esFechaOVacia = (valor) => valor == null || valor === ''
+  || (typeof valor === 'string' && !Number.isNaN(new Date(valor).getTime()));
+
+// Valida los datos que admin y coordinador pueden editar. Devuelve el mensaje de error o null.
+function validarDatosEditables({ seguro, ultimoService, detalle, enServicio }) {
+  if (seguro !== undefined) {
+    if (!esObjeto(seguro)) return 'El seguro debe ser un objeto con compania, poliza y vence';
+    if (!esTextoOVacio(seguro.compania) || !esTextoOVacio(seguro.poliza)) return 'La compañía y la póliza deben ser texto';
+    if (!esFechaOVacia(seguro.vence)) return 'El vencimiento del seguro no es una fecha válida';
+  }
+  if (!esFechaOVacia(ultimoService)) return 'La fecha del último service no es válida';
+  if (!esTextoOVacio(detalle)) return 'El detalle debe ser texto';
+  if (enServicio !== undefined && typeof enServicio !== 'boolean') return 'enServicio debe ser true o false';
+  return null;
+}
+
 async function buscarPropio(vehiculoId, usuario) {
   const vehiculo = await vehiculosRepository.buscarPorId(aId(vehiculoId));
   if (!vehiculo) return { error: resultado(404, { mensaje: 'Vehículo no encontrado' }) };
@@ -74,6 +91,17 @@ export const vehiculosService = {
     }))));
   },
 
+  // Lista del diálogo "Asignar técnico": solo técnicos activos, con id y nombre.
+  async opciones() {
+    const tecnicos = await usuariosRepository.listar({ rolId: 3 });
+    return resultado(200, {
+      tecnicos: tecnicos
+        .filter((tecnico) => tecnico.activo !== false)
+        .map(({ id, nombre }) => ({ id, nombre }))
+        .sort((primero, segundo) => primero.nombre.localeCompare(segundo.nombre, 'es')),
+    });
+  },
+
   async crear(body, usuario) {
     if (!esGestion(usuario)) return resultado(403, { mensaje: 'Solo admin o coordinador pueden realizar esta acción' });
     if (!esObjeto(body) || typeof body.patente !== 'string' || !body.patente.trim()) {
@@ -105,12 +133,19 @@ export const vehiculosService = {
     if (!esGestion(usuario) && !['kilometraje', 'control'].includes(operacion)) {
       return resultado(403, { mensaje: 'No tienes permisos para modificar este vehículo' });
     }
+    // Admin y coordinador solo pueden modificar el seguro, el último service, el detalle y
+    // si está en servicio. Patente, marca, modelo y kilometraje no se editan.
     const datos = operacion === 'kilometraje'
       ? elegir(body, ['kilometraje'])
       : operacion === 'control'
         ? elegir(body, ['estado', 'kilometraje'])
-        : elegir(body, ['patente', 'marca', 'modelo', 'seguro', 'ultimoService', 'detalle', 'enServicio']);
+        : elegir(body, ['seguro', 'ultimoService', 'detalle', 'enServicio']);
     if (!Object.keys(datos).length) return resultado(400, { mensaje: 'No hay campos modificables' });
+    if (!operacion) {
+      const error = validarDatosEditables(datos);
+      if (error) return resultado(400, { mensaje: error });
+      if (datos.seguro) datos.seguro = elegir(datos.seguro, ['compania', 'poliza', 'vence']);
+    }
     if (datos.kilometraje !== undefined && Number(datos.kilometraje) < Number(vehiculo.kilometraje?.actual)) {
       return resultado(400, { mensaje: 'El kilometraje debe ser válido y no menor al actual.' });
     }

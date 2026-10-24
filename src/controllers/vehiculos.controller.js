@@ -5,6 +5,7 @@ const responder = (res, resultado) => res.status(resultado.status).json(resultad
 
 export const vehiculosController = {
   listar: async (req, res) => responder(res, await vehiculosService.listar(req.usuarioAutenticado)),
+  opciones: async (req, res) => responder(res, await vehiculosService.opciones()),
   crear: async (req, res) => responder(res, await vehiculosService.crear(req.body, req.usuarioAutenticado)),
   eliminar: async (req, res) => responder(res, await vehiculosService.eliminar(req.params.id, req.usuarioAutenticado)),
   actualizar: async (req, res) => responder(res, await vehiculosService.actualizar(req.params.id, req.body, req.usuarioAutenticado)),

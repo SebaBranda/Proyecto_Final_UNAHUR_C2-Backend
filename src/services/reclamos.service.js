@@ -69,6 +69,24 @@ export const reclamosService = {
     return resultado(200, await conRelaciones(await reclamosRepository.listar(filtro)));
   },
 
+  // Listas de los formularios ("Nuevo reclamo" y "Asignar técnico"): solo clientes y técnicos
+  // activos, con los campos que muestran los selectores.
+  async opciones() {
+    const [clientes, tecnicos] = await Promise.all([
+      clientesRepository.listar({ activo: { $ne: false } }),
+      usuariosRepository.listar({ rolId: 3 }),
+    ]);
+    return resultado(200, {
+      clientes: clientes
+        .map(({ id, nombre, zona }) => ({ id, nombre, zona }))
+        .sort((primero, segundo) => primero.nombre.localeCompare(segundo.nombre, 'es')),
+      tecnicos: tecnicos
+        .filter((tecnico) => tecnico.activo !== false)
+        .map((tecnico) => ({ id: tecnico.id, nombre: tecnico.nombre, email: tecnico.perfil?.email }))
+        .sort((primero, segundo) => primero.nombre.localeCompare(segundo.nombre, 'es')),
+    });
+  },
+
   // Totales para el panel: los cuenta Mongo, no se traen los reclamos.
   async resumen() {
     const [pendientes, serviciosGestionados] = await Promise.all([

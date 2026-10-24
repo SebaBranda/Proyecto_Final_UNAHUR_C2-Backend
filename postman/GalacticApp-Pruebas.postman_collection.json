@@ -1051,6 +1051,30 @@
           }
         },
         {
+          "name": "GET OPCIONES DEL DIALOGO ASIGNAR TECNICO (VEHICULOS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae técnicos activos con id y nombre', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicos = pm.response.json().tecnicos;",
+                  "  tecnicos.forEach((tecnico) => pm.expect(tecnico).to.have.all.keys('id', 'nombre'));",
+                  "  pm.expect(tecnicos.map((tecnico) => tecnico.id)).to.include(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos/opciones"
+          }
+        },
+        {
           "name": "GET USUARIO TECNICO TRAE SU VEHICULO",
           "event": [
             {
@@ -1214,6 +1238,200 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"detalle\": \"Detalle actualizado desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH EDITAR SEGURO, SERVICE Y ESTADO (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Guarda los datos editables y devuelve el vehículo con su técnico', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const vehiculo = pm.response.json();",
+                  "  pm.expect(vehiculo.seguro.poliza).to.eql('PM-002');",
+                  "  pm.expect(vehiculo.enServicio).to.eql(false);",
+                  "  pm.expect(vehiculo.detalle).to.eql('Editado por el coordinador');",
+                  "  pm.expect(vehiculo.tecnico.id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seguro\": {\n    \"compania\": \"Seguro Editado\",\n    \"poliza\": \"PM-002\",\n    \"vence\": \"2028-06-30\"\n  },\n  \"ultimoService\": \"2026-10-01\",\n  \"detalle\": \"Editado por el coordinador\",\n  \"enServicio\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH VOLVER A EN SERVICIO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Vuelve a estar en servicio', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().enServicio).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enServicio\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH EDITAR PATENTE (NO SE PERMITE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No hay campos modificables\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"ZZ 000 ZZ\",\n  \"marca\": \"Otra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH FECHA DE SERVICE INVÁLIDA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La fecha del último service no es válida\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ultimoService\": \"no-es-fecha\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH ESTADO NO BOOLEANO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"enServicio debe ser true o false\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enServicio\": \"si\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1732,6 +1950,74 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos/resumen",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET OPCIONES DEL FORMULARIO DE RECLAMOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae clientes y técnicos activos, solo con los campos del selector', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const datos = pm.response.json();",
+                  "  pm.expect(datos).to.have.all.keys('clientes', 'tecnicos');",
+                  "  datos.clientes.forEach((cliente) => pm.expect(cliente).to.have.all.keys('id', 'nombre', 'zona'));",
+                  "  datos.tecnicos.forEach((tecnico) => pm.expect(tecnico).to.have.all.keys('id', 'nombre', 'email'));",
+                  "  pm.expect(datos.clientes.map((cliente) => cliente.id)).to.include(Number(pm.collectionVariables.get('clienteId')));",
+                  "  pm.expect(datos.tecnicos.map((tecnico) => tecnico.id)).to.include(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/opciones",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET OPCIONES DE RECLAMOS COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rechazado por rol\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/opciones",
             "auth": {
               "type": "bearer",
               "bearer": [

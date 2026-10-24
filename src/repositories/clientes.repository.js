@@ -1,8 +1,8 @@
 import { Cliente } from '../models/schemas.js';
 
 class ClientesRepository {
-  async listar() {
-    return Cliente.find().select('-_id -__v').lean();
+  async listar(filtro = {}) {
+    return Cliente.find(filtro).select('-_id -__v').lean();
   }
 
   async buscarPorId(id) {

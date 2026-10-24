@@ -30,6 +30,7 @@ router.put('/clientes/:id', autorizarRoles(1, 2), clientesCrud.actualizar);
 router.patch('/clientes/:id', autorizarRoles(1, 2), clientesCrud.actualizar);
 router.delete('/clientes/:id', autorizarRoles(1, 2), clientesCrud.eliminar);
 router.get('/vehiculos', vehiculosController.listar);
+router.get('/vehiculos/opciones', autorizarRoles(1, 2), vehiculosController.opciones);
 router.post('/vehiculos', autorizarRoles(1, 2), vehiculosController.crear);
 router.delete('/vehiculos/:id', autorizarRoles(1, 2), vehiculosController.eliminar);
 router.put('/vehiculos/:id', vehiculosController.actualizar);
@@ -43,6 +44,7 @@ router.delete('/jornadas/:id', autorizarRoles(1, 2), jornadasController.eliminar
 router.patch('/jornadas/:id/finalizar', jornadasController.finalizar);
 router.get('/reclamos', reclamosController.listar);
 router.get('/reclamos/resumen', autorizarRoles(1, 2), reclamosController.resumen);
+router.get('/reclamos/opciones', autorizarRoles(1, 2), reclamosController.opciones);
 router.post('/reclamos', reclamosController.crear);
 router.delete('/reclamos/:id', autorizarRoles(1, 2), reclamosController.eliminar);
 router.patch('/reclamos/:id/asignacion', reclamosController.asignar);
