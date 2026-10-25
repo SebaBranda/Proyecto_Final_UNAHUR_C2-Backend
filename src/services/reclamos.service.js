@@ -2,6 +2,7 @@ import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { imagenesService } from './imagenes.service.js';
+import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 
 const MAXIMO_IMAGENES_RECLAMO = 5;
 
@@ -58,7 +59,7 @@ async function validarTecnico(tecnicoId) {
 
 export const reclamosService = {
   // estado (opcional): devuelve solo los reclamos en ese estado, por ejemplo 'En progreso'.
-  async listar(usuario, { estado } = {}) {
+  async listar(usuario, { estado, pagina, limite } = {}) {
     if (estado !== undefined && !estadosReclamo.has(estado)) {
       return resultado(400, { mensaje: 'Estado de reclamo inválido' });
     }
@@ -66,7 +67,13 @@ export const reclamosService = {
       ...(esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) }),
       ...(estado ? { estado } : {}),
     };
-    return resultado(200, await conRelaciones(await reclamosRepository.listar(filtro)));
+    const paginacion = obtenerPaginacion({ pagina, limite });
+    const paginaReclamos = await reclamosRepository.listarPaginado(filtro, paginacion);
+    return resultado(200, respuestaPaginada(
+      await conRelaciones(paginaReclamos.datos),
+      paginaReclamos.total,
+      paginacion,
+    ));
   },
 
   // Listas de los formularios ("Nuevo reclamo" y "Asignar técnico"): solo clientes y técnicos

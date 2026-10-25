@@ -5,6 +5,14 @@ class JornadasRepository {
     return Jornada.find(filtro).select('-_id -__v').lean();
   }
 
+  async listarPaginado(filtro, { salto, limite }) {
+    const [datos, total] = await Promise.all([
+      Jornada.find(filtro).sort({ id: -1 }).skip(salto).limit(limite).select('-_id -__v').lean(),
+      Jornada.countDocuments(filtro),
+    ]);
+    return { datos, total };
+  }
+
   async buscarPorId(id) {
     return Jornada.findOne({ id }).select('-_id -__v').lean();
   }

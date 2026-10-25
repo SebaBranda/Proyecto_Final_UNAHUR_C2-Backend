@@ -10,16 +10,20 @@ import { clientesRepository } from '../repositories/clientes.repository.js';
 import { ubicacionesRepository } from '../repositories/ubicaciones.repository.js';
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { hashPassword } from './password.service.js';
+import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 
 export const usuariosService = crearServicioUsuarios();
 
 export const tecnicosService = {
   // Para admin y coordinador cada técnico trae todo lo que muestran el mapa, la pantalla
   // Técnicos y el rendimiento del panel: así esas pantallas hacen un solo pedido.
-  async listar({ usuario, usuarioAutenticado } = {}) {
-    const resultado = await usuariosService.listar({ usuario, rolId: 3 });
+  async listar({ usuario, pagina, limite, usuarioAutenticado } = {}) {
+    const resultado = await usuariosService.listar({ usuario, pagina, limite, rolId: 3 });
     if (![1, 2].includes(usuarioAutenticado?.rolId)) return resultado;
-    return respuesta(200, await tecnicosConDetalle(resultado.body));
+    return respuesta(200, {
+      ...resultado.body,
+      datos: await tecnicosConDetalle(resultado.body.datos),
+    });
   },
   obtener(id) {
     return usuariosService.obtener(id, { rolId: 3 });
@@ -95,16 +99,22 @@ export async function prepararUsuarioParaGuardar(usuario, actual, cambios = {}) 
 
 function crearServicioUsuarios() {
   return {
-    async listar({ usuario, rolId, usuarioAutenticado } = {}) {
+    async listar({ usuario, rolId, pagina, limite, usuarioAutenticado } = {}) {
       const alcance = alcanceUsuarios(usuarioAutenticado);
-      const registros = await usuariosRepository.listar({
+      const paginacion = obtenerPaginacion({ pagina, limite });
+      const filtro = {
         usuario,
         rolId: rolId ?? alcance.rolId,
-      });
-      const visibles = alcance.id === undefined
-        ? registros
-        : registros.filter((registro) => registro.id === alcance.id);
-      return respuesta(200, await conVehiculo(visibles.map(serializarUsuario)));
+        ...(alcance.id === undefined ? {} : { id: alcance.id }),
+      };
+      const paginaUsuarios = alcance.id === undefined
+        ? await usuariosRepository.listarPaginado(filtro, paginacion)
+        : {
+          datos: (await usuariosRepository.listar(filtro)).filter((registro) => registro.id === alcance.id),
+          total: 1,
+        };
+      const datos = await conVehiculo(paginaUsuarios.datos.map(serializarUsuario));
+      return respuesta(200, respuestaPaginada(datos, paginaUsuarios.total, paginacion));
     },
 
     // Totales para el panel: los cuenta Mongo, no se traen los usuarios.

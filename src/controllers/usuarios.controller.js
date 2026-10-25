@@ -16,6 +16,8 @@ function crearControlador(service) {
     async listar(req, res) {
       return responder(res, await service.listar({
         usuario: req.query.usuario,
+        pagina: req.query.pagina,
+        limite: req.query.limite,
         usuarioAutenticado: req.usuarioAutenticado,
       }));
     },

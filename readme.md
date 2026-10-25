@@ -305,17 +305,17 @@ GET http://localhost:3000/
 | `GET` | `/` | Estado del servicio |
 | `GET` | `/api/ping` | Verificar comunicación con la API |
 | `POST` | `/api/auth/login` | Autenticar usuario y emitir JWT |
-| `GET` | `/api/usuarios` | Listar usuarios; admite `?usuario=nombre` |
+| `GET` | `/api/usuarios` | Listar usuarios; admite `?usuario=nombre&pagina=1&limite=20` |
 | `GET` | `/api/usuarios/:id` | Obtener usuario |
 | `POST` | `/api/usuarios` | Crear usuario |
 | `PUT`, `PATCH` | `/api/usuarios/:id` | Actualizar usuario |
 | `DELETE` | `/api/usuarios/:id` | Eliminar usuario |
-| `GET` | `/api/tecnicos` | Listar técnicos; admite `?usuario=nombre` |
+| `GET` | `/api/tecnicos` | Listar técnicos; admite `?usuario=nombre&pagina=1&limite=20` |
 | `GET` | `/api/tecnicos/:id` | Obtener técnico |
 | `POST` | `/api/tecnicos` | Crear técnico |
 | `PUT`, `PATCH` | `/api/tecnicos/:id` | Actualizar técnico |
 | `DELETE` | `/api/tecnicos/:id` | Eliminar técnico |
-| `GET` | `/api/clientes` | Listar clientes |
+| `GET` | `/api/clientes` | Listar clientes; admite `?pagina=1&limite=20` |
 | `GET` | `/api/clientes/:id` | Obtener cliente |
 | `POST` | `/api/clientes` | Crear cliente |
 | `PUT`, `PATCH` | `/api/clientes/:id` | Actualizar cliente |
@@ -324,6 +324,8 @@ GET http://localhost:3000/
 | `PATCH` | `/api/ubicaciones-tecnicos/:tecnicoId` | Guardar la ubicación propia del técnico autenticado |
 
 Las ubicaciones se guardan en la colección `ubicaciontecnicos` al recibirse la primera posición GPS. El técnico debe tener una jornada activa y permitir la geolocalización en el navegador; no se cargan coordenadas de ejemplo.
+
+Los listados de usuarios, técnicos, clientes, vehículos, jornadas y reclamos son paginados. `limite` tiene un máximo de 100 y la respuesta usa la forma `{ datos, paginacion }`, donde `paginacion` incluye `pagina`, `limite`, `total`, `paginas`, `tieneAnterior` y `tieneSiguiente`.
 
 #### Salud
 

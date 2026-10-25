@@ -288,3 +288,136 @@ export const jornadasIniciales = [
   { id: 4, tecnicoId: 6, inicio: '2026-10-09T08:00:00-03:00', fin: '2026-10-09T13:20:00-03:00', kilometrajeInicial: 30105, kilometrajeFinal: 30148, activa: false },
   { id: 5, tecnicoId: 9, inicio: '2026-10-09T09:00:00-03:00', fin: '2026-10-09T17:45:00-03:00', kilometrajeInicial: 48210, kilometrajeFinal: 48297, activa: false },
 ];
+
+// Datos adicionales para probar listados, filtros, asignaciones y reportes con volumen.
+const hashContrasenaDemo = usuariosIniciales.find(({ id }) => id === 3).passwordHash;
+const zonasDemo = ['Moron Centro', 'Castelar Norte', 'Ramos Mejia', 'Haedo Centro', 'Ituzaingo Norte', 'Hurlingham Centro', 'Moreno Centro', 'Castelar Sur'];
+const nombresDemo = ['Agustin', 'Brenda', 'Cecilia', 'Dario', 'Emilia', 'Federico', 'Gabriela', 'Hugo', 'Irene', 'Julian'];
+const apellidosDemo = ['Alvarez', 'Bustos', 'Cabrera', 'Dominguez', 'Escobar', 'Fernandez', 'Gomez', 'Herrera', 'Ibarra', 'Juarez', 'Klein', 'Luna', 'Maidana', 'Navarro', 'Ojeda'];
+const tiposReclamoDemo = ['Sin servicio', 'Baja potencia', 'Corte intermitente', 'Cambio de equipo', 'Instalacion'];
+const prioridadesDemo = ['Normal', 'Alta', 'Urgente'];
+
+const tecnicosDemo = Array.from({ length: 30 }, (_, indice) => {
+  const id = 10 + indice;
+  const nombre = nombresDemo[indice % nombresDemo.length];
+  const apellido = apellidosDemo[indice % apellidosDemo.length];
+  const nombreUsuario = `tecnico.demo${indice + 1}`;
+  const zona = zonasDemo[indice % zonasDemo.length];
+  const activo = indice % 7 !== 6;
+  return {
+    usuario: {
+      id,
+      usuario: nombreUsuario,
+      passwordHash: hashContrasenaDemo,
+      nombre: `${nombre} ${apellido}`,
+      rolId: 3,
+      activo,
+    },
+    perfil: {
+      usuarioId: id,
+      documento: String(40000000 + indice * 137),
+      fechaNacimiento: `1990-${String((indice % 9) + 1).padStart(2, '0')}-${String((indice % 28) + 1).padStart(2, '0')}`,
+      vencimientoRegistro: '2027-12-31',
+      telefono: `11-5${String(200 + indice).padStart(3, '0')}-${String(1000 + indice).slice(-4)}`,
+      email: `${nombreUsuario}@galactic.app`,
+      direccion: `${100 + indice} ${['Rivadavia', 'Sarmiento', 'Belgrano', 'San Martin'][indice % 4]}, ${zona}`,
+    },
+  };
+});
+
+for (const { usuario, perfil } of tecnicosDemo) {
+  usuariosIniciales.push(usuario);
+  tecnicoPerfilesIniciales.push(perfil);
+}
+
+for (let indice = 0; indice < 155; indice += 1) {
+  const id = 11 + indice;
+  const nombre = nombresDemo[(indice + 3) % nombresDemo.length];
+  const apellido = apellidosDemo[(indice * 3) % apellidosDemo.length];
+  const zona = zonasDemo[indice % zonasDemo.length];
+  clientesIniciales.push({
+    id,
+    nombre: `${nombre} ${apellido} ${indice + 1}`,
+    documento: String(42000000 + indice * 113),
+    telefono: `11-4${String(500 + indice).padStart(3, '0')}-${String(1000 + indice).slice(-4)}`,
+    email: `cliente.demo${indice + 1}@galactic.app`,
+    direccion: `${200 + indice} ${['Rivadavia', 'Sarmiento', 'Belgrano', 'San Martin'][indice % 4]}, ${zona}`,
+    activo: indice % 19 !== 18,
+    coordenadas: {
+      latitud: -34.59 - ((indice * 17) % 80) / 1000,
+      longitud: -58.55 - ((indice * 23) % 240) / 1000,
+    },
+    zona,
+  });
+}
+
+for (let indice = 0; indice < 12; indice += 1) {
+  const id = 10 + indice;
+  const tecnicoId = 10 + (indice % 12);
+  vehiculosIniciales.push({
+    id,
+    patente: `AK ${String(100 + indice).slice(-3)} ${String.fromCharCode(65 + indice)}${String.fromCharCode(66 + indice)}`,
+    marca: ['Renault', 'Fiat', 'Ford', 'Peugeot'][indice % 4],
+    modelo: ['Kangoo', 'Fiorino', 'Ranger', 'Partner'][indice % 4],
+    tecnicoAsignado: tecnicoId,
+    kilometraje: { inicial: 12000 + indice * 1870, actual: 13200 + indice * 1930, final: null },
+    seguro: { compania: 'La Segunda', poliza: `DM-${10000 + indice}`, vence: '2027-12-31' },
+    ultimoService: '2026-09-15',
+    detalle: 'Vehiculo demo para pruebas de asignaciones y jornadas.',
+    disponible: indice % 5 !== 4,
+  });
+}
+
+for (let indice = 0; indice < 60; indice += 1) {
+  const clienteId = 11 + indice;
+  const tecnicoId = indice < 30 ? 10 + ((indice * 7) % 30) : null;
+  const estado = tecnicoId ? ['Asignado', 'En progreso', 'Finalizado'][indice % 3] : 'Abierto';
+  reclamosIniciales.push({
+    id: 21 + indice,
+    clienteId,
+    tipo: tiposReclamoDemo[indice % tiposReclamoDemo.length],
+    prioridad: prioridadesDemo[indice % prioridadesDemo.length],
+    descripcion: `Reclamo demo ${indice + 1} para validar la asignacion del servicio.`,
+    estado,
+    creadoEn: `2026-10-${String((indice % 15) + 1).padStart(2, '0')}T${String((indice % 8) + 8).padStart(2, '0')}:00:00-03:00`,
+    tecnicoId,
+    agrupacionGeografica: zonasDemo[indice % zonasDemo.length],
+    fechaProgramada: `2026-10-${String((indice % 20) + 1).padStart(2, '0')}`,
+    ...(estado === 'Finalizado' ? {
+      finalizadoEn: '2026-10-20T16:00:00-03:00',
+      jornadaId: 6 + ((tecnicoId - 3) * 12) + (indice % 12),
+      comentarioFinalizacion: 'Servicio demo finalizado correctamente.',
+    } : {}),
+  });
+}
+
+let siguienteJornadaDemo = Math.max(...jornadasIniciales.map(({ id }) => id)) + 1;
+for (const tecnico of usuariosIniciales.filter(({ rolId }) => rolId === 3)) {
+  for (let indice = 0; indice < 12; indice += 1) {
+    const dia = 20 - indice;
+    jornadasIniciales.push({
+      id: siguienteJornadaDemo,
+      tecnicoId: tecnico.id,
+      inicio: `2026-09-${String(dia).padStart(2, '0')}T08:00:00-03:00`,
+      fin: `2026-09-${String(dia).padStart(2, '0')}T16:00:00-03:00`,
+      kilometrajeInicial: 10000 + tecnico.id * 100 + indice * 40,
+      kilometrajeFinal: 10070 + tecnico.id * 100 + indice * 40,
+      activa: false,
+    });
+    siguienteJornadaDemo += 1;
+  }
+
+  // Solo parte de los técnicos queda actualmente en jornada, para probar ambos estados.
+  if (tecnico.id % 3 === 0) {
+    jornadasIniciales.push({
+      id: siguienteJornadaDemo,
+      tecnicoId: tecnico.id,
+      inicio: '2026-10-25T08:00:00-03:00',
+      fin: null,
+      kilometrajeInicial: 20000 + tecnico.id * 100,
+      kilometrajeFinal: null,
+      activa: true,
+    });
+    siguienteJornadaDemo += 1;
+  }
+}

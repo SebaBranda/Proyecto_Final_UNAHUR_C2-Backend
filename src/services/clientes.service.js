@@ -1,15 +1,17 @@
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
+import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 
 export const clientesService = {
-  async listar(usuarioAutenticado) {
-    const clientes = await clientesRepository.listar();
+  async listar(usuarioAutenticado, query = {}) {
+    const paginacion = obtenerPaginacion(query);
+    let filtro = {};
     if (usuarioAutenticado?.rolId === 3) {
       const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
-      const permitidos = new Set(reclamos.map((reclamo) => reclamo.clienteId));
-      return respuesta(200, clientes.filter((cliente) => permitidos.has(cliente.id)).map(serializarCliente));
+      filtro = { id: { $in: [...new Set(reclamos.map((reclamo) => reclamo.clienteId))] } };
     }
-    return respuesta(200, clientes.map(serializarCliente));
+    const pagina = await clientesRepository.listarPaginado(filtro, paginacion);
+    return respuesta(200, respuestaPaginada(pagina.datos.map(serializarCliente), pagina.total, paginacion));
   },
 
   async obtener(idParametro, usuarioAutenticado) {

@@ -4,7 +4,7 @@ import { vehiculosService } from '../services/vehiculos.service.js';
 const responder = (res, resultado) => res.status(resultado.status).json(resultado.body);
 
 export const vehiculosController = {
-  listar: async (req, res) => responder(res, await vehiculosService.listar(req.usuarioAutenticado)),
+  listar: async (req, res) => responder(res, await vehiculosService.listar(req.usuarioAutenticado, req.query)),
   opciones: async (req, res) => responder(res, await vehiculosService.opciones()),
   crear: async (req, res) => responder(res, await vehiculosService.crear(req.body, req.usuarioAutenticado)),
   eliminar: async (req, res) => responder(res, await vehiculosService.eliminar(req.params.id, req.usuarioAutenticado)),

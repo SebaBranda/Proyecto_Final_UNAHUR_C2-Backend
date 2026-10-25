@@ -21,6 +21,25 @@ class UsuariosRepository {
     return Promise.all(registros.map((registro) => this.combinarPerfil(registro)));
   }
 
+  async listarPaginado({ rolId, usuario } = {}, { salto, limite }) {
+    const filtro = {};
+    if (rolId) filtro.rolId = rolId;
+    if (usuario) filtro.usuario = usuario;
+    const [registros, total] = await Promise.all([
+      Usuario.find(filtro)
+        .sort({ id: 1 })
+        .skip(salto)
+        .limit(limite)
+        .select('+passwordHash +nombre')
+        .lean(),
+      Usuario.countDocuments(filtro),
+    ]);
+    return {
+      datos: await Promise.all(registros.map((registro) => this.combinarPerfil(registro))),
+      total,
+    };
+  }
+
   async contar(filtro = {}) {
     return Usuario.countDocuments(filtro);
   }

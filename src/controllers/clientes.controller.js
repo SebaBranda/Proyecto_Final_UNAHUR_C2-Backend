@@ -2,7 +2,7 @@ import { clientesService } from '../services/clientes.service.js';
 
 export const clientesCrud = {
   async listar(req, res) {
-    return responder(res, await clientesService.listar(req.usuarioAutenticado));
+    return responder(res, await clientesService.listar(req.usuarioAutenticado, req.query));
   },
   async obtener(req, res) {
     return responder(res, await clientesService.obtener(req.params.id, req.usuarioAutenticado));

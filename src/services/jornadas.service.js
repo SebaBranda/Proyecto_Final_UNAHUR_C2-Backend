@@ -1,6 +1,7 @@
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { imagenesService } from './imagenes.service.js';
+import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -13,20 +14,22 @@ const elegir = (body, campos) => Object.fromEntries(
 const IMAGENES_CIERRE_JORNADA = 4;
 
 export const jornadasService = {
-  async listar(usuario) {
+  async listar(usuario, query = {}) {
     const filtro = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
-    const jornadas = await jornadasRepository.listar(filtro);
+    const paginacion = obtenerPaginacion(query);
+    const pagina = await jornadasRepository.listarPaginado(filtro, paginacion);
+    const jornadas = pagina.datos;
     // Servicios finalizados en cada jornada (solo los datos que muestra el resumen).
     const finalizados = await reclamosRepository.listar({
       estado: 'Finalizado',
       jornadaId: { $in: jornadas.map((jornada) => jornada.id) },
     });
-    return resultado(200, jornadas.map((jornada) => ({
+    return resultado(200, respuestaPaginada(jornadas.map((jornada) => ({
       ...jornada,
       servicios: finalizados
         .filter((reclamo) => reclamo.jornadaId === jornada.id)
         .map(({ id, tipo, finalizadoEn, fechaProgramada, creadoEn }) => ({ id, tipo, finalizadoEn, fechaProgramada, creadoEn })),
-    })));
+    })), pagina.total, paginacion));
   },
 
   async crear(body, usuario) {

@@ -5,6 +5,14 @@ class ClientesRepository {
     return Cliente.find(filtro).select('-_id -__v').lean();
   }
 
+  async listarPaginado(filtro, { salto, limite }) {
+    const [datos, total] = await Promise.all([
+      Cliente.find(filtro).sort({ id: 1 }).skip(salto).limit(limite).select('-_id -__v').lean(),
+      Cliente.countDocuments(filtro),
+    ]);
+    return { datos, total };
+  }
+
   async buscarPorId(id) {
     return Cliente.findOne({ id }).select('-_id -__v').lean();
   }

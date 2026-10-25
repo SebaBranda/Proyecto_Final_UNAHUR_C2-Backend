@@ -5,6 +5,14 @@ class ReclamosRepository {
     return Reclamo.find(filtro).select('-_id -__v').lean();
   }
 
+  async listarPaginado(filtro, { salto, limite }) {
+    const [datos, total] = await Promise.all([
+      Reclamo.find(filtro).sort({ id: 1 }).skip(salto).limit(limite).select('-_id -__v').lean(),
+      Reclamo.countDocuments(filtro),
+    ]);
+    return { datos, total };
+  }
+
   async contar(filtro = {}) {
     return Reclamo.countDocuments(filtro);
   }

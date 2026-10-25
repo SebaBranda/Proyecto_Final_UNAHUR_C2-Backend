@@ -1,5 +1,6 @@
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
+import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 import { imagenesService } from './imagenes.service.js';
 
 const MAXIMO_IMAGENES_CONTROL = 4;
@@ -82,13 +83,15 @@ async function liberarOtrosVehiculos(tecnicoId, vehiculoId) {
 }
 
 export const vehiculosService = {
-  async listar(usuario) {
+  async listar(usuario, query = {}) {
     const filtro = esGestion(usuario) ? {} : { tecnicoAsignado: aId(usuario.id) };
-    const vehiculos = await vehiculosRepository.listar(filtro);
-    return resultado(200, await conTecnico(vehiculos.map((vehiculo) => ({
+    const paginacion = obtenerPaginacion(query);
+    const pagina = await vehiculosRepository.listarPaginado(filtro, paginacion);
+    const vehiculos = await conTecnico(pagina.datos.map((vehiculo) => ({
       ...vehiculo,
       controles: controlesVigentes(vehiculo.controles),
-    }))));
+    })));
+    return resultado(200, respuestaPaginada(vehiculos, pagina.total, paginacion));
   },
 
   // Lista del diálogo "Asignar técnico": solo técnicos activos, con id y nombre.
