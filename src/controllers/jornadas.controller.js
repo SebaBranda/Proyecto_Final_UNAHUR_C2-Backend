@@ -5,6 +5,7 @@ const responder = (res, resultado) => res.status(resultado.status).json(resultad
 
 export const jornadasController = {
   listar: async (req, res) => responder(res, await jornadasService.listar(req.usuarioAutenticado, req.query)),
+  resumen: async (req, res) => responder(res, await jornadasService.resumen(req.usuarioAutenticado, req.query)),
   crear: async (req, res) => responder(res, await jornadasService.crear(req.body, req.usuarioAutenticado)),
   eliminar: async (req, res) => responder(res, await jornadasService.eliminar(req.params.id, req.usuarioAutenticado)),
   finalizar: async (req, res) => responder(res, await jornadasService.finalizar(req.params.id, req.body, req.usuarioAutenticado)),

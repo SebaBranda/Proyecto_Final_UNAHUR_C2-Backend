@@ -298,7 +298,9 @@
                 "exec": [
                   "pm.test(\"Lista de usuarios responde 200\", function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos).to.be.an('array');",
+                  "  pm.expect(respuesta.paginacion).to.include.keys('pagina', 'limite', 'total', 'paginas', 'tieneAnterior', 'tieneSiguiente');",
                   "});"
                 ]
               }
@@ -506,7 +508,9 @@
                 "exec": [
                   "pm.test(\"Lista de técnicos responde 200\", function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos).to.be.an('array');",
+                  "  pm.expect(respuesta.paginacion).to.include.keys('pagina', 'limite', 'total', 'paginas', 'tieneAnterior', 'tieneSiguiente');",
                   "});"
                 ]
               }
@@ -666,7 +670,7 @@
                 "exec": [
                   "pm.test('El técnico solo se ve a sí mismo', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const usuarios = pm.response.json();",
+                  "  const usuarios = pm.response.json().datos;",
                   "  pm.expect(usuarios).to.have.lengthOf(1);",
                   "  pm.expect(usuarios[0].id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
                   "});"
@@ -752,7 +756,9 @@
                 "exec": [
                   "pm.test(\"Lista de clientes responde 200\", function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos).to.be.an('array');",
+                  "  pm.expect(respuesta.paginacion).to.include.keys('pagina', 'limite', 'total', 'paginas', 'tieneAnterior', 'tieneSiguiente');",
                   "});"
                 ]
               }
@@ -966,7 +972,9 @@
                 "exec": [
                   "pm.test(\"Lista de vehículos responde 200\", function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos).to.be.an('array');",
+                  "  pm.expect(respuesta.paginacion).to.include.keys('pagina', 'limite', 'total', 'paginas', 'tieneAnterior', 'tieneSiguiente');",
                   "});"
                 ]
               }
@@ -1035,10 +1043,10 @@
                 "exec": [
                   "pm.test('Cada vehículo trae su técnico adentro', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const vehiculo = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  const vehiculo = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('vehiculoId')));",
                   "  pm.expect(vehiculo.tecnico.id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
                   "  pm.expect(vehiculo.tecnico).to.have.property('nombre');",
-                  "  pm.response.json().filter((item) => item.tecnicoAsignado == null).forEach((item) => pm.expect(item.tecnico).to.eql(null));",
+                  "  pm.response.json().datos.filter((item) => item.tecnicoAsignado == null).forEach((item) => pm.expect(item.tecnico).to.eql(null));",
                   "});"
                 ]
               }
@@ -1047,7 +1055,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/vehiculos"
+            "url": "{{baseUrl}}/api/vehiculos?buscar={{patentePrueba}}"
           }
         },
         {
@@ -1058,10 +1066,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Trae técnicos activos con id y nombre', function () {",
+                  "pm.test('Trae técnicos activos con id, nombre y su vehículo actual', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const tecnicos = pm.response.json().tecnicos;",
-                  "  tecnicos.forEach((tecnico) => pm.expect(tecnico).to.have.all.keys('id', 'nombre'));",
+                  "  tecnicos.forEach((tecnico) => pm.expect(tecnico).to.have.all.keys('id', 'nombre', 'vehiculo'));",
                   "  pm.expect(tecnicos.map((tecnico) => tecnico.id)).to.include(Number(pm.collectionVariables.get('tecnicoId')));",
                   "});"
                 ]
@@ -1450,7 +1458,7 @@
                 "exec": [
                   "pm.test('El técnico ve solo su vehículo', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const vehiculos = pm.response.json();",
+                  "  const vehiculos = pm.response.json().datos;",
                   "  pm.expect(vehiculos).to.have.lengthOf(1);",
                   "  pm.expect(vehiculos[0].id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
                   "});"
@@ -1673,7 +1681,9 @@
                 "exec": [
                   "pm.test(\"Lista de reclamos responde 200\", function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos).to.be.an('array');",
+                  "  pm.expect(respuesta.paginacion).to.include.keys('pagina', 'limite', 'total', 'paginas', 'tieneAnterior', 'tieneSiguiente');",
                   "});"
                 ]
               }
@@ -1883,7 +1893,7 @@
                 "exec": [
                   "pm.test('Cada reclamo trae su cliente y su técnico adentro', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const reclamo = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('reclamoId')));",
+                  "  const reclamo = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('reclamoId')));",
                   "  pm.expect(reclamo.cliente.id).to.eql(Number(pm.collectionVariables.get('clienteId')));",
                   "  pm.expect(reclamo.tecnico.id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
                   "  pm.expect(reclamo.tecnico).to.not.have.property('passwordHash');",
@@ -1895,7 +1905,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/reclamos",
+            "url": "{{baseUrl}}/api/reclamos?tecnicoId={{tecnicoId}}&limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2040,7 +2050,7 @@
                 "exec": [
                   "pm.test('Cada técnico trae estado, reclamo, vehículo y rendimiento', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const tecnico = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  const tecnico = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('tecnicoId')));",
                   "  pm.expect(tecnico.estado).to.eql('Asignado');",
                   "  pm.expect(tecnico.reclamoAsignado.id).to.eql(Number(pm.collectionVariables.get('reclamoId')));",
                   "  pm.expect(tecnico.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
@@ -2053,7 +2063,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/tecnicos",
+            "url": "{{baseUrl}}/api/tecnicos?buscar={{tecnicoUsuario}}&limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2123,7 +2133,7 @@
                   "pm.test('El técnico solo ve sus reclamos', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
-                  "  pm.response.json().forEach((reclamo) => pm.expect(reclamo.tecnicoId).to.eql(tecnicoId));",
+                  "  pm.response.json().datos.forEach((reclamo) => pm.expect(reclamo.tecnicoId).to.eql(tecnicoId));",
                   "});"
                 ]
               }
@@ -2132,7 +2142,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/reclamos",
+            "url": "{{baseUrl}}/api/reclamos?limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2250,7 +2260,7 @@
                 "exec": [
                   "pm.test('Solo trae sus reclamos en progreso', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const reclamos = pm.response.json();",
+                  "  const reclamos = pm.response.json().datos;",
                   "  const reclamoId = Number(pm.collectionVariables.get('reclamoId'));",
                   "  pm.expect(reclamos.map((reclamo) => reclamo.id)).to.include(reclamoId);",
                   "  reclamos.forEach((reclamo) => pm.expect(reclamo.estado).to.eql('En progreso'));",
@@ -2262,7 +2272,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/reclamos?estado=En progreso",
+            "url": "{{baseUrl}}/api/reclamos?estado=En progreso&limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2353,6 +2363,137 @@
           }
         },
         {
+          "name": "GET CLIENTES PAGINADOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve solo la página pedida y el total', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.datos.length).to.be.at.most(2);",
+                  "  pm.expect(respuesta.paginacion.pagina).to.eql(1);",
+                  "  pm.expect(respuesta.paginacion.limite).to.eql(2);",
+                  "  pm.expect(respuesta.paginacion.paginas).to.eql(Math.ceil(respuesta.paginacion.total / 2));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes?pagina=1&limite=2"
+          }
+        },
+        {
+          "name": "GET CLIENTES BUSCANDO SIN ACENTOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Encuentra el cliente buscando 456, moron (su domicilio dice Morón)', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const clienteId = Number(pm.collectionVariables.get('clienteId'));",
+                  "  pm.expect(pm.response.json().datos.map((cliente) => cliente.id)).to.include(clienteId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes?buscar=456%2C%20moron&limite=100"
+          }
+        },
+        {
+          "name": "GET RECLAMOS FILTRADOS POR TECNICO Y ESTADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Todos son del técnico y están en progreso', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  const reclamos = pm.response.json().datos;",
+                  "  pm.expect(reclamos.length).to.be.above(0);",
+                  "  reclamos.forEach((reclamo) => { pm.expect(reclamo.tecnicoId).to.eql(tecnicoId); pm.expect(reclamo.estado).to.eql('En progreso'); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?tecnicoId={{tecnicoId}}&estado=En progreso"
+          }
+        },
+        {
+          "name": "GET RECLAMOS DEL TECNICO CON TOTALES POR ESTADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae cuántos reclamos tiene en cada estado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.totalesPorEstado).to.be.an('object');",
+                  "  const suma = Object.values(respuesta.totalesPorEstado).reduce((total, cantidad) => total + cantidad, 0);",
+                  "  pm.expect(suma).to.eql(respuesta.paginacion.total);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?limite=1",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECLAMOS CON FECHA INVALIDA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La fecha \\\"desde\\\" no es válida\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?desde=no-es-fecha"
+          }
+        },
+        {
           "name": "GET CLIENTES COMO TECNICO (LOS DE SUS RECLAMOS)",
           "event": [
             {
@@ -2362,7 +2503,7 @@
                 "exec": [
                   "pm.test('El técnico ve al cliente de su reclamo', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const ids = pm.response.json().map((cliente) => cliente.id);",
+                  "  const ids = pm.response.json().datos.map((cliente) => cliente.id);",
                   "  pm.expect(ids).to.include(Number(pm.collectionVariables.get('clienteId')));",
                   "});"
                 ]
@@ -2372,7 +2513,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/clientes",
+            "url": "{{baseUrl}}/api/clientes?limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2965,7 +3106,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('La lista trae los ids, no las imágenes', function () {",
-                  "  const reclamo = pm.response.json().find((r) => r.id === Number(pm.collectionVariables.get('reclamoId')));",
+                  "  const reclamo = pm.response.json().datos.find((r) => r.id === Number(pm.collectionVariables.get('reclamoId')));",
                   "  pm.expect(reclamo.imagenes).to.have.lengthOf(2);",
                   "  pm.expect(JSON.stringify(reclamo)).to.not.include('data:image');",
                   "});"
@@ -2976,7 +3117,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/reclamos",
+            "url": "{{baseUrl}}/api/reclamos?tecnicoId={{tecnicoId}}&limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3044,6 +3185,52 @@
           }
         },
         {
+          "name": "POST INICIAR OTRA JORNADA CON UNA ACTIVA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Ya hay una jornada activa. Finalizala antes de iniciar otra.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometrajeInicial\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET JORNADAS COMO TECNICO",
           "event": [
             {
@@ -3054,7 +3241,7 @@
                   "pm.test('El técnico ve solo sus jornadas', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
-                  "  pm.response.json().forEach((jornada) => pm.expect(jornada.tecnicoId).to.eql(tecnicoId));",
+                  "  pm.response.json().datos.forEach((jornada) => pm.expect(jornada.tecnicoId).to.eql(tecnicoId));",
                   "});"
                 ]
               }
@@ -3063,7 +3250,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/jornadas",
+            "url": "{{baseUrl}}/api/jornadas?limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3269,6 +3456,52 @@
           }
         },
         {
+          "name": "PATCH FINALIZAR UNA JORNADA YA FINALIZADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La jornada ya está finalizada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET JORNADAS TRAEN SUS SERVICIOS",
           "event": [
             {
@@ -3278,7 +3511,7 @@
                 "exec": [
                   "pm.test('Cada jornada trae la lista de sus servicios finalizados', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  const jornada = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get('jornadaId')));",
+                  "  const jornada = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('jornadaId')));",
                   "  pm.expect(jornada.servicios).to.be.an('array');",
                   "});"
                 ]
@@ -3288,7 +3521,71 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/jornadas",
+            "url": "{{baseUrl}}/api/jornadas?limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN DE SERVICIOS (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve solo los contadores', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.have.all.keys('totalServicios', 'serviciosEnPeriodo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas/resumen",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN DESDE UNA FECHA FUTURA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No hay servicios en el período', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().serviciosEnPeriodo).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas/resumen?desde=2099-01-01",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3516,6 +3813,40 @@
       "name": "9. Limpieza",
       "description": "Borra todo lo creado por la colección, en orden inverso a las dependencias.",
       "item": [
+        {
+          "name": "GET TECNICO SIN JORNADA NO MUESTRA UBICACION",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Con la jornada finalizada, el mapa no muestra su ubicación', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnico = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.expect(tecnico.jornadaActiva).to.eql(null);",
+                  "  pm.expect(tecnico.ubicacion).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/tecnicos?buscar={{tecnicoUsuario}}&limite=10",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
         {
           "name": "DEL ELIMINAR JORNADA",
           "event": [

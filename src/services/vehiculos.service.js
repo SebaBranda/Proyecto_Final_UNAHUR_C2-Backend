@@ -1,6 +1,14 @@
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
-import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
+import {
+  obtenerPaginacion, regexDeBusqueda, respuestaPaginada, textoDeBusqueda,
+} from '../utils/paginacion.js';
+
+const FILTRO_POR_ASIGNACION = {
+  Todos: {},
+  'Con técnico': { tecnicoAsignado: { $ne: null } },
+  'Sin técnico': { tecnicoAsignado: null },
+};
 import { imagenesService } from './imagenes.service.js';
 
 const MAXIMO_IMAGENES_CONTROL = 4;
@@ -83,10 +91,28 @@ async function liberarOtrosVehiculos(tecnicoId, vehiculoId) {
 }
 
 export const vehiculosService = {
+  // Filtros opcionales: buscar (patente, marca, modelo o nombre del técnico) y
+  // asignacion (Todos, Con técnico, Sin técnico). Ordena por patente.
   async listar(usuario, query = {}) {
-    const filtro = esGestion(usuario) ? {} : { tecnicoAsignado: aId(usuario.id) };
+    const asignacion = query.asignacion || 'Todos';
+    if (!FILTRO_POR_ASIGNACION[asignacion]) {
+      return resultado(400, { mensaje: 'La asignación debe ser Todos, Con técnico o Sin técnico' });
+    }
+    const filtro = esGestion(usuario)
+      ? { ...FILTRO_POR_ASIGNACION[asignacion] }
+      : { tecnicoAsignado: aId(usuario.id) };
+    const texto = textoDeBusqueda(query.buscar);
+    if (texto && esGestion(usuario)) {
+      const regex = regexDeBusqueda(texto);
+      filtro.$or = [
+        { patente: regex },
+        { marca: regex },
+        { modelo: regex },
+        { tecnicoAsignado: { $in: await usuariosRepository.idsPorNombre(regex, { rolId: 3 }) } },
+      ];
+    }
     const paginacion = obtenerPaginacion(query);
-    const pagina = await vehiculosRepository.listarPaginado(filtro, paginacion);
+    const pagina = await vehiculosRepository.listarPaginado(filtro, paginacion, { patente: 1, id: 1 });
     const vehiculos = await conTecnico(pagina.datos.map((vehiculo) => ({
       ...vehiculo,
       controles: controlesVigentes(vehiculo.controles),
@@ -94,13 +120,20 @@ export const vehiculosService = {
     return resultado(200, respuestaPaginada(vehiculos, pagina.total, paginacion));
   },
 
-  // Lista del diálogo "Asignar técnico": solo técnicos activos, con id y nombre.
+  // Lista del diálogo "Asignar técnico": solo técnicos activos, con id, nombre y su vehículo actual
+  // (para avisar que lo pierde, aunque ese vehículo no esté en la página que se ve).
   async opciones() {
-    const tecnicos = await usuariosRepository.listar({ rolId: 3 });
+    const [tecnicos, asignados] = await Promise.all([
+      usuariosRepository.listar({ rolId: 3 }),
+      vehiculosRepository.listar({ tecnicoAsignado: { $ne: null } }),
+    ]);
     return resultado(200, {
       tecnicos: tecnicos
         .filter((tecnico) => tecnico.activo !== false)
-        .map(({ id, nombre }) => ({ id, nombre }))
+        .map(({ id, nombre }) => {
+          const vehiculo = asignados.find((item) => item.tecnicoAsignado === id);
+          return { id, nombre, vehiculo: vehiculo ? { id: vehiculo.id, patente: vehiculo.patente } : null };
+        })
         .sort((primero, segundo) => primero.nombre.localeCompare(segundo.nombre, 'es')),
     });
   },

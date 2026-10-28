@@ -32,10 +32,31 @@ export const jornadasService = {
     })), pagina.total, paginacion));
   },
 
+  // Contadores del "Resumen de servicios" del técnico: total de servicios finalizados y cuántos
+  // desde la fecha "desde" (inicio de la semana, del mes o del año, calculado por el navegador).
+  async resumen(usuario, { desde } = {}) {
+    const fechaDesde = desde ? new Date(desde) : null;
+    if (fechaDesde && Number.isNaN(fechaDesde.getTime())) {
+      return resultado(400, { mensaje: 'La fecha "desde" no es válida' });
+    }
+    const finalizados = await reclamosRepository.listar({ tecnicoId: aId(usuario.id), estado: 'Finalizado' });
+    const fechaDeServicio = (reclamo) => new Date(reclamo.finalizadoEn || reclamo.fechaProgramada || reclamo.creadoEn);
+    return resultado(200, {
+      totalServicios: finalizados.length,
+      serviciosEnPeriodo: fechaDesde
+        ? finalizados.filter((reclamo) => fechaDeServicio(reclamo) >= fechaDesde).length
+        : finalizados.length,
+    });
+  },
+
   async crear(body, usuario) {
     const tecnicoId = aId(body?.tecnicoId) || aId(usuario.id);
     if (!esGestion(usuario) && tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes iniciar tu propia jornada' });
+    }
+    // Un técnico tiene como máximo una jornada activa.
+    if ((await jornadasRepository.listar({ tecnicoId, activa: true })).length) {
+      return resultado(409, { mensaje: 'Ya hay una jornada activa. Finalizala antes de iniciar otra.' });
     }
     return resultado(201, await jornadasRepository.crear({
       tecnicoId,
@@ -51,6 +72,7 @@ export const jornadasService = {
     if (!esGestion(usuario) && jornada.tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes finalizar tu propia jornada' });
     }
+    if (!jornada.activa) return resultado(400, { mensaje: 'La jornada ya está finalizada' });
     const errorImagenes = await imagenesService.validarReferencias(body?.imagenes, usuario, {
       minimo: IMAGENES_CIERRE_JORNADA,
       maximo: IMAGENES_CIERRE_JORNADA,
@@ -62,11 +84,20 @@ export const jornadasService = {
           : errorImagenes,
       });
     }
-    return resultado(200, await jornadasRepository.actualizar(jornada.id, {
+    const finalizada = await jornadasRepository.actualizar(jornada.id, {
       fin: new Date().toISOString(),
       activa: false,
       controlFinal: elegir(body, ['kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
-    }));
+    });
+    // Si quedaron otras jornadas activas del mismo técnico (datos viejos o de prueba), se cierran
+    // con duración 0 para que no sumen horas: el técnico deja de figurar en jornada.
+    const duplicadas = await jornadasRepository.listar({ tecnicoId: jornada.tecnicoId, activa: true });
+    await Promise.all(duplicadas.map((duplicada) => jornadasRepository.actualizar(duplicada.id, {
+      activa: false,
+      fin: duplicada.inicio,
+      cerradaAutomaticamente: true,
+    })));
+    return resultado(200, finalizada);
   },
 
   async eliminar(jornadaId, usuario) {

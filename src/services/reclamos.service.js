@@ -58,21 +58,42 @@ async function validarTecnico(tecnicoId) {
 }
 
 export const reclamosService = {
-  // estado (opcional): devuelve solo los reclamos en ese estado, por ejemplo 'En progreso'.
-  async listar(usuario, { estado, pagina, limite } = {}) {
-    if (estado !== undefined && !estadosReclamo.has(estado)) {
+  // Filtros opcionales (los aplica Mongo):
+  // - estado: 'Abierto', 'Asignado', 'En progreso', 'Bloqueado', 'Finalizado' o 'Todos'.
+  // - tecnicoId: id del técnico, 'Sin asignar' o 'Todos' (solo admin y coordinador).
+  // - desde / hasta: rango de la fecha de creación.
+  // Ordena del más nuevo al más viejo. Al técnico le agrega cuántos reclamos tiene en cada estado.
+  async listar(usuario, { estado, tecnicoId, desde, hasta, pagina, limite } = {}) {
+    if (estado !== undefined && estado !== 'Todos' && !estadosReclamo.has(estado)) {
       return resultado(400, { mensaje: 'Estado de reclamo inválido' });
     }
-    const filtro = {
-      ...(esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) }),
-      ...(estado ? { estado } : {}),
-    };
+    const base = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
+    const filtro = { ...base };
+    if (estado && estado !== 'Todos') filtro.estado = estado;
+    if (esGestion(usuario) && tecnicoId !== undefined && tecnicoId !== 'Todos') {
+      if (tecnicoId === 'Sin asignar') filtro.tecnicoId = null;
+      else if (aId(tecnicoId)) filtro.tecnicoId = aId(tecnicoId);
+      else return resultado(400, { mensaje: 'tecnicoId inválido' });
+    }
+    const rango = {};
+    for (const [clave, valor, operador] of [['desde', desde, '$gte'], ['hasta', hasta, '$lte']]) {
+      if (!valor) continue;
+      const fecha = new Date(valor);
+      if (Number.isNaN(fecha.getTime())) return resultado(400, { mensaje: `La fecha "${clave}" no es válida` });
+      rango[operador] = fecha;
+    }
+    if (Object.keys(rango).length) filtro.creadoEn = rango;
+
     const paginacion = obtenerPaginacion({ pagina, limite });
-    const paginaReclamos = await reclamosRepository.listarPaginado(filtro, paginacion);
+    const [paginaReclamos, totalesPorEstado] = await Promise.all([
+      reclamosRepository.listarPaginado(filtro, paginacion, { id: -1 }),
+      esGestion(usuario) ? null : reclamosRepository.contarPorEstado(base),
+    ]);
     return resultado(200, respuestaPaginada(
       await conRelaciones(paginaReclamos.datos),
       paginaReclamos.total,
       paginacion,
+      totalesPorEstado ? { totalesPorEstado } : {},
     ));
   },
 

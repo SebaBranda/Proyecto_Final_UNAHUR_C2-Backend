@@ -18,6 +18,10 @@ function crearControlador(service) {
         usuario: req.query.usuario,
         pagina: req.query.pagina,
         limite: req.query.limite,
+        buscar: req.query.buscar,
+        rol: req.query.rol,
+        estado: req.query.estado,
+        activo: req.query.activo,
         usuarioAutenticado: req.usuarioAutenticado,
       }));
     },

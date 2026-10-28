@@ -10,20 +10,41 @@ import { clientesRepository } from '../repositories/clientes.repository.js';
 import { ubicacionesRepository } from '../repositories/ubicaciones.repository.js';
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { hashPassword } from './password.service.js';
-import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
+import {
+  obtenerPaginacion, paginarEnMemoria, regexDeBusqueda, respuestaPaginada, sinAcentos, textoDeBusqueda,
+} from '../utils/paginacion.js';
+import { ROLES_DISPONIBLES } from '../config/roles.js';
+
+const ESTADOS_TECNICO = new Set(['Activo', 'Asignado', 'Libre']);
+const ACTIVO_POR_ESTADO = { Todos: undefined, Activos: true, Inactivos: false };
 
 export const usuariosService = crearServicioUsuarios();
 
 export const tecnicosService = {
   // Para admin y coordinador cada técnico trae todo lo que muestran el mapa, la pantalla
-  // Técnicos y el rendimiento del panel: así esas pantallas hacen un solo pedido.
-  async listar({ usuario, pagina, limite, usuarioAutenticado } = {}) {
-    const resultado = await usuariosService.listar({ usuario, pagina, limite, rolId: 3 });
-    if (![1, 2].includes(usuarioAutenticado?.rolId)) return resultado;
-    return respuesta(200, {
-      ...resultado.body,
-      datos: await tecnicosConDetalle(resultado.body.datos),
-    });
+  // Técnicos y el rendimiento del panel.
+  // Filtros opcionales: buscar (nombre, usuario, correo o DNI), estado (Activo, Asignado, Libre o
+  // Todos; se calcula a partir de los reclamos) y activo=true (solo técnicos habilitados).
+  async listar({ usuario, pagina, limite, buscar, estado, activo, usuarioAutenticado } = {}) {
+    if (![1, 2].includes(usuarioAutenticado?.rolId)) {
+      return usuariosService.listar({ usuario, pagina, limite, rolId: 3 });
+    }
+    if (estado && estado !== 'Todos' && !ESTADOS_TECNICO.has(estado)) {
+      return respuesta(400, { mensaje: 'El estado debe ser Activo, Asignado, Libre o Todos' });
+    }
+    const paginacion = obtenerPaginacion({ pagina, limite });
+    const texto = sinAcentos(textoDeBusqueda(buscar));
+    const tecnicos = (await usuariosRepository.listar({ rolId: 3, usuario }))
+      .map(serializarUsuario)
+      .filter((tecnico) => activo !== 'true' || tecnico.activo !== false)
+      .filter((tecnico) => !texto || [tecnico.nombre, tecnico.usuario, tecnico.perfil?.email, tecnico.perfil?.documento]
+        .some((campo) => sinAcentos(campo).includes(texto)));
+    // El estado se calcula a partir de los reclamos: por eso se filtra y pagina en memoria.
+    const conDetalle = (await tecnicosConDetalle(await conVehiculo(tecnicos)))
+      .filter((tecnico) => !estado || estado === 'Todos' || tecnico.estado === estado)
+      .sort((primero, segundo) => primero.nombre.localeCompare(segundo.nombre, 'es'));
+    const paginaTecnicos = paginarEnMemoria(conDetalle, paginacion);
+    return respuesta(200, respuestaPaginada(paginaTecnicos.datos, paginaTecnicos.total, paginacion));
   },
   obtener(id) {
     return usuariosService.obtener(id, { rolId: 3 });
@@ -99,16 +120,48 @@ export async function prepararUsuarioParaGuardar(usuario, actual, cambios = {}) 
 
 function crearServicioUsuarios() {
   return {
-    async listar({ usuario, rolId, pagina, limite, usuarioAutenticado } = {}) {
+    // Filtros opcionales: buscar (nombre, usuario, DNI, correo, teléfono o rol), rol y estado
+    // (Todos, Activos, Inactivos). Ordena por nombre.
+    async listar({ usuario, rolId, pagina, limite, buscar, rol, estado, usuarioAutenticado } = {}) {
       const alcance = alcanceUsuarios(usuarioAutenticado);
       const paginacion = obtenerPaginacion({ pagina, limite });
+      const estadoPedido = estado || 'Todos';
+      if (!Object.hasOwn(ACTIVO_POR_ESTADO, estadoPedido)) {
+        return respuesta(400, { mensaje: 'El estado debe ser Todos, Activos o Inactivos' });
+      }
+      let rolFiltro = rolId ?? alcance.rolId;
+      if (rol && rol !== 'Todos') {
+        const rolPedido = buscarRol(rol);
+        if (!rolPedido) return respuesta(400, { mensaje: 'Rol inválido' });
+        if (rolFiltro && rolFiltro !== rolPedido.id) {
+          return respuesta(200, respuestaPaginada([], 0, paginacion));
+        }
+        rolFiltro = rolPedido.id;
+      }
+      const extra = {};
+      if (ACTIVO_POR_ESTADO[estadoPedido] === true) extra.activo = { $ne: false };
+      if (ACTIVO_POR_ESTADO[estadoPedido] === false) extra.activo = false;
+      const texto = textoDeBusqueda(buscar);
+      if (texto) {
+        const regex = regexDeBusqueda(texto);
+        const rolesQueCoinciden = ROLES_DISPONIBLES
+          .filter((rolDisponible) => regex.test(rolDisponible.nombre))
+          .map((rolDisponible) => rolDisponible.id);
+        extra.$or = [
+          { nombre: regex },
+          { usuario: regex },
+          { id: { $in: await usuariosRepository.idsPorPerfil(regex) } },
+          { rolId: { $in: rolesQueCoinciden } },
+        ];
+      }
       const filtro = {
         usuario,
-        rolId: rolId ?? alcance.rolId,
+        rolId: rolFiltro,
+        extra,
         ...(alcance.id === undefined ? {} : { id: alcance.id }),
       };
       const paginaUsuarios = alcance.id === undefined
-        ? await usuariosRepository.listarPaginado(filtro, paginacion)
+        ? await usuariosRepository.listarPaginado(filtro, paginacion, { nombre: 1, id: 1 })
         : {
           datos: (await usuariosRepository.listar(filtro)).filter((registro) => registro.id === alcance.id),
           total: 1,
@@ -232,17 +285,24 @@ const horasDeJornada = (jornada) => (jornada.fin
   : 0);
 
 // Agrega a cada técnico: estado (Activo, Asignado o Libre), el reclamo en curso o el próximo
-// asignado con su cliente, ubicación, paradas para el mapa y rendimiento.
+// asignado con su cliente, ubicación, jornada activa, paradas para el mapa y rendimiento.
 // El vehículo ya viene de usuariosService.listar.
 async function tecnicosConDetalle(tecnicos) {
-  const [reclamos, clientes, ubicaciones, jornadas] = await Promise.all([
+  const [reclamos, clientes, ubicaciones, jornadas, jornadasActivas] = await Promise.all([
     reclamosRepository.listar(),
     clientesRepository.listar(),
     ubicacionesRepository.listar(),
     jornadasRepository.listar({ fin: { $ne: null } }),
+    jornadasRepository.listar({ activa: true }),
   ]);
   const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
   const fechaDeOrden = (reclamo) => new Date(reclamo.fechaProgramada || reclamo.creadoEn || 0);
+  const jornadaActivaDe = (tecnicoId) => {
+    const jornada = jornadasActivas
+      .filter((item) => item.tecnicoId === tecnicoId)
+      .sort((primera, segunda) => new Date(segunda.inicio) - new Date(primera.inicio))[0];
+    return jornada ? { id: jornada.id, inicio: jornada.inicio } : null;
+  };
 
   return tecnicos.map((tecnico) => {
     const propios = reclamos.filter((reclamo) => reclamo.tecnicoId === tecnico.id);
@@ -255,7 +315,12 @@ async function tecnicosConDetalle(tecnicos) {
       reclamoEnCurso,
       reclamoAsignado,
       cliente: cliente ? { id: cliente.id, nombre: cliente.nombre } : null,
-      ubicacion: ubicaciones.find((ubicacion) => ubicacion.tecnicoId === tecnico.id) || null,
+      // Jornada en curso (para el panel: técnicos trabajando ahora). null si no tiene una activa.
+      jornadaActiva: jornadaActivaDe(tecnico.id),
+      // La ubicación solo se muestra mientras trabaja: al finalizar la jornada deja de verse.
+      ubicacion: jornadaActivaDe(tecnico.id)
+        ? ubicaciones.find((ubicacion) => ubicacion.tecnicoId === tecnico.id) || null
+        : null,
       // Domicilios de sus servicios en orden, para dibujar el recorrido en el mapa.
       recorrido: propios
         .filter((reclamo) => reclamo.estado !== 'Bloqueado')

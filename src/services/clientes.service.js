@@ -1,16 +1,29 @@
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
-import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
+import {
+  obtenerPaginacion, regexDeBusqueda, respuestaPaginada, textoDeBusqueda,
+} from '../utils/paginacion.js';
+
+const CAMPOS_BUSQUEDA = ['nombre', 'documento', 'telefono', 'email', 'direccion'];
+const FILTRO_POR_ESTADO = { Todos: {}, Activos: { activo: { $ne: false } }, Inactivos: { activo: false } };
 
 export const clientesService = {
+  // Filtros opcionales: buscar (nombre, DNI, teléfono, correo o domicilio) y estado (Todos, Activos, Inactivos).
   async listar(usuarioAutenticado, query = {}) {
     const paginacion = obtenerPaginacion(query);
-    let filtro = {};
+    const estado = query.estado || 'Todos';
+    if (!FILTRO_POR_ESTADO[estado]) return respuesta(400, { mensaje: 'El estado debe ser Todos, Activos o Inactivos' });
+    const filtro = { ...FILTRO_POR_ESTADO[estado] };
     if (usuarioAutenticado?.rolId === 3) {
       const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
-      filtro = { id: { $in: [...new Set(reclamos.map((reclamo) => reclamo.clienteId))] } };
+      filtro.id = { $in: [...new Set(reclamos.map((reclamo) => reclamo.clienteId))] };
     }
-    const pagina = await clientesRepository.listarPaginado(filtro, paginacion);
+    const texto = textoDeBusqueda(query.buscar);
+    if (texto) {
+      const regex = regexDeBusqueda(texto);
+      filtro.$or = CAMPOS_BUSQUEDA.map((campo) => ({ [campo]: regex }));
+    }
+    const pagina = await clientesRepository.listarPaginado(filtro, paginacion, { nombre: 1, id: 1 });
     return respuesta(200, respuestaPaginada(pagina.datos.map(serializarCliente), pagina.total, paginacion));
   },
 

@@ -21,13 +21,15 @@ class UsuariosRepository {
     return Promise.all(registros.map((registro) => this.combinarPerfil(registro)));
   }
 
-  async listarPaginado({ rolId, usuario } = {}, { salto, limite }) {
-    const filtro = {};
+  // extra: condiciones adicionales de Mongo (búsqueda, estado...). orden: por defecto, por id.
+  async listarPaginado({ rolId, usuario, extra = {} } = {}, { salto, limite }, orden = { id: 1 }) {
+    const filtro = { ...extra };
     if (rolId) filtro.rolId = rolId;
     if (usuario) filtro.usuario = usuario;
     const [registros, total] = await Promise.all([
       Usuario.find(filtro)
-        .sort({ id: 1 })
+        .collation({ locale: 'es', strength: 1 })
+        .sort(orden)
         .skip(salto)
         .limit(limite)
         .select('+passwordHash +nombre')
@@ -42,6 +44,22 @@ class UsuariosRepository {
 
   async contar(filtro = {}) {
     return Usuario.countDocuments(filtro);
+  }
+
+  // Ids de los usuarios cuyo perfil (DNI, correo...) coincide con la búsqueda.
+  async idsPorPerfil(regex) {
+    const condicion = { $or: [{ documento: regex }, { email: regex }, { telefono: regex }] };
+    const perfiles = await Promise.all(
+      [TecnicoProfile].map((Modelo) => Modelo.find(condicion).select('usuarioId -_id').lean()),
+    );
+    return perfiles.flat().map((perfil) => perfil.usuarioId);
+  }
+
+  // Ids de los usuarios cuyo nombre coincide con la búsqueda (por ejemplo, para buscar vehículos por técnico).
+  async idsPorNombre(regex, { rolId } = {}) {
+    const filtro = { nombre: regex };
+    if (rolId) filtro.rolId = rolId;
+    return (await Usuario.find(filtro).select('id -_id').lean()).map((usuario) => usuario.id);
   }
 
   async buscarPorId(id, { rolId } = {}) {

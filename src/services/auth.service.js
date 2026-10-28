@@ -59,7 +59,7 @@ async function datosDelTecnico(tecnicoId) {
   ]);
   const { controles, ...vehiculo } = vehiculos[0] || {};
   return {
-    jornadaActiva: jornadas[0] || null,
+    jornadaActiva: jornadas.sort((primera, segunda) => new Date(segunda.inicio) - new Date(primera.inicio))[0] || null,
     vehiculo: vehiculos[0] ? vehiculo : null,
   };
 }

@@ -39,6 +39,7 @@ router.patch('/vehiculos/:id/asignacion', autorizarRoles(1, 2), vehiculosControl
 router.patch('/vehiculos/:id/kilometraje', vehiculosController.kilometraje);
 router.patch('/vehiculos/:id/control', vehiculosController.control);
 router.get('/jornadas', jornadasController.listar);
+router.get('/jornadas/resumen', jornadasController.resumen);
 router.post('/jornadas', jornadasController.crear);
 router.delete('/jornadas/:id', autorizarRoles(1, 2), jornadasController.eliminar);
 router.patch('/jornadas/:id/finalizar', jornadasController.finalizar);

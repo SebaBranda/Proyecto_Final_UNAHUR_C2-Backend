@@ -305,17 +305,17 @@ GET http://localhost:3000/
 | `GET` | `/` | Estado del servicio |
 | `GET` | `/api/ping` | Verificar comunicación con la API |
 | `POST` | `/api/auth/login` | Autenticar usuario y emitir JWT |
-| `GET` | `/api/usuarios` | Listar usuarios; admite `?usuario=nombre&pagina=1&limite=20` |
+| `GET` | `/api/usuarios` | Listar usuarios; admite `?pagina=1&limite=20&buscar=texto&rol=Tecnico&estado=Activos` |
 | `GET` | `/api/usuarios/:id` | Obtener usuario |
 | `POST` | `/api/usuarios` | Crear usuario |
 | `PUT`, `PATCH` | `/api/usuarios/:id` | Actualizar usuario |
 | `DELETE` | `/api/usuarios/:id` | Eliminar usuario |
-| `GET` | `/api/tecnicos` | Listar técnicos; admite `?usuario=nombre&pagina=1&limite=20` |
+| `GET` | `/api/tecnicos` | Listar técnicos; admite `?pagina=1&limite=20&buscar=texto&estado=Libre&activo=true` |
 | `GET` | `/api/tecnicos/:id` | Obtener técnico |
 | `POST` | `/api/tecnicos` | Crear técnico |
 | `PUT`, `PATCH` | `/api/tecnicos/:id` | Actualizar técnico |
 | `DELETE` | `/api/tecnicos/:id` | Eliminar técnico |
-| `GET` | `/api/clientes` | Listar clientes; admite `?pagina=1&limite=20` |
+| `GET` | `/api/clientes` | Listar clientes; admite `?pagina=1&limite=20&buscar=texto&estado=Activos` |
 | `GET` | `/api/clientes/:id` | Obtener cliente |
 | `POST` | `/api/clientes` | Crear cliente |
 | `PUT`, `PATCH` | `/api/clientes/:id` | Actualizar cliente |
@@ -326,6 +326,21 @@ GET http://localhost:3000/
 Las ubicaciones se guardan en la colección `ubicaciontecnicos` al recibirse la primera posición GPS. El técnico debe tener una jornada activa y permitir la geolocalización en el navegador; no se cargan coordenadas de ejemplo.
 
 Los listados de usuarios, técnicos, clientes, vehículos, jornadas y reclamos son paginados. `limite` tiene un máximo de 100 y la respuesta usa la forma `{ datos, paginacion }`, donde `paginacion` incluye `pagina`, `limite`, `total`, `paginas`, `tieneAnterior` y `tieneSiguiente`.
+
+Los filtros se aplican en el servidor, antes de paginar (así la página 2 de una búsqueda es correcta). La búsqueda (`buscar`) no distingue mayúsculas ni acentos: `lucia` encuentra `Lucía`. Los filtros vacíos o con valor `Todos` se ignoran.
+
+| Listado | Filtros | Orden |
+|---|---|---|
+| `GET /api/clientes` | `buscar` (nombre, DNI/CUIT, teléfono, correo, domicilio), `estado` (`Todos`, `Activos`, `Inactivos`) | Nombre |
+| `GET /api/usuarios` | `buscar` (nombre, usuario, DNI, correo, teléfono o rol), `rol` (`Administrador`, `Coordinador`, `Tecnico`), `estado` (`Todos`, `Activos`, `Inactivos`) | Nombre |
+| `GET /api/tecnicos` | `buscar` (nombre, usuario, correo, DNI), `estado` (`Activo`, `Asignado`, `Libre`; se calcula a partir de los reclamos), `activo=true` | Nombre |
+| `GET /api/vehiculos` | `buscar` (patente, marca, modelo o nombre del técnico), `asignacion` (`Todos`, `Con técnico`, `Sin técnico`) | Patente |
+| `GET /api/reclamos` | `estado`, `tecnicoId` (id o `Sin asignar`), `desde` y `hasta` (fecha de creación, ISO) | Más nuevos primero |
+| `GET /api/jornadas` | — | Más nuevas primero |
+
+Para el técnico, `GET /api/reclamos` agrega `totalesPorEstado` (por ejemplo `{ "Asignado": 2, "En progreso": 1 }`) con todos sus reclamos, sin importar la página ni el filtro.
+
+`GET /api/jornadas/resumen?desde=<fecha ISO>` devuelve los contadores del Resumen de servicios del técnico: `{ totalServicios, serviciosEnPeriodo }`. Sin `desde`, ambos son el total.
 
 #### Salud
 

@@ -5,9 +5,10 @@ class ClientesRepository {
     return Cliente.find(filtro).select('-_id -__v').lean();
   }
 
-  async listarPaginado(filtro, { salto, limite }) {
+  async listarPaginado(filtro, { salto, limite }, orden = { id: 1 }) {
     const [datos, total] = await Promise.all([
-      Cliente.find(filtro).sort({ id: 1 }).skip(salto).limit(limite).select('-_id -__v').lean(),
+      Cliente.find(filtro).collation({ locale: 'es', strength: 1 }).sort(orden).skip(salto).limit(limite)
+        .select('-_id -__v').lean(),
       Cliente.countDocuments(filtro),
     ]);
     return { datos, total };
