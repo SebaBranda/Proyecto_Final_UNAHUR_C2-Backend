@@ -62,7 +62,9 @@ export const reclamosService = {
   // - estado: 'Abierto', 'Asignado', 'En progreso', 'Bloqueado', 'Finalizado' o 'Todos'.
   // - tecnicoId: id del técnico, 'Sin asignar' o 'Todos' (solo admin y coordinador).
   // - desde / hasta: rango de la fecha de creación.
-  // Ordena del más nuevo al más viejo. Al técnico le agrega cuántos reclamos tiene en cada estado.
+  // Admin y coordinador: del más nuevo al más viejo.
+  // Técnico: en el orden en que tiene que trabajarlos (en progreso, asignados por prioridad y fecha
+  // de visita, finalizados del más reciente al más viejo) y con cuántos reclamos tiene en cada estado.
   async listar(usuario, { estado, tecnicoId, desde, hasta, pagina, limite } = {}) {
     if (estado !== undefined && estado !== 'Todos' && !estadosReclamo.has(estado)) {
       return resultado(400, { mensaje: 'Estado de reclamo inválido' });
@@ -86,7 +88,9 @@ export const reclamosService = {
 
     const paginacion = obtenerPaginacion({ pagina, limite });
     const [paginaReclamos, totalesPorEstado] = await Promise.all([
-      reclamosRepository.listarPaginado(filtro, paginacion, { id: -1 }),
+      esGestion(usuario)
+        ? reclamosRepository.listarPaginado(filtro, paginacion, { id: -1 })
+        : reclamosRepository.listarPaginadoParaTecnico(filtro, paginacion),
       esGestion(usuario) ? null : reclamosRepository.contarPorEstado(base),
     ]);
     return resultado(200, respuestaPaginada(

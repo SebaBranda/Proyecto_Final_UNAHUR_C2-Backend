@@ -14,6 +14,62 @@ class ReclamosRepository {
     return { datos, total };
   }
 
+  // Orden de trabajo del técnico:
+  // 1. En progreso.
+  // 2. Asignados: primero los urgentes, después los de prioridad alta; dentro de cada prioridad,
+  //    la visita programada más cercana primero.
+  // 3. Bloqueados y otros estados.
+  // 4. Finalizados: el más reciente primero.
+  async listarPaginadoParaTecnico(filtro, { salto, limite }) {
+    const milisegundos = (campo) => ({
+      $toLong: { $convert: { input: campo, to: 'date', onError: null, onNull: null } },
+    });
+    const [datos, total] = await Promise.all([
+      Reclamo.aggregate([
+        { $match: filtro },
+        {
+          $addFields: {
+            ordenGrupo: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$estado', 'En progreso'] }, then: 0 },
+                  { case: { $eq: ['$estado', 'Asignado'] }, then: 1 },
+                  { case: { $eq: ['$estado', 'Finalizado'] }, then: 3 },
+                ],
+                default: 2,
+              },
+            },
+            ordenPrioridad: {
+              $cond: [
+                { $eq: ['$estado', 'Asignado'] },
+                { $switch: { branches: [
+                  { case: { $eq: ['$prioridad', 'Urgente'] }, then: 0 },
+                  { case: { $eq: ['$prioridad', 'Alta'] }, then: 1 },
+                ], default: 2 } },
+                0,
+              ],
+            },
+            ordenFecha: {
+              $cond: [
+                { $eq: ['$estado', 'Asignado'] },
+                // Visita más cercana primero; sin fecha, al final del grupo.
+                { $ifNull: [milisegundos('$fechaProgramada'), Number.MAX_SAFE_INTEGER] },
+                // Resto: el más reciente primero (finalizados por fecha de finalización).
+                { $multiply: [-1, { $ifNull: [milisegundos('$finalizadoEn'), milisegundos('$creadoEn'), 0] }] },
+              ],
+            },
+          },
+        },
+        { $sort: { ordenGrupo: 1, ordenPrioridad: 1, ordenFecha: 1, id: -1 } },
+        { $skip: salto },
+        { $limit: limite },
+        { $project: { _id: 0, __v: 0, ordenGrupo: 0, ordenPrioridad: 0, ordenFecha: 0 } },
+      ]),
+      Reclamo.countDocuments(filtro),
+    ]);
+    return { datos, total };
+  }
+
   async contar(filtro = {}) {
     return Reclamo.countDocuments(filtro);
   }

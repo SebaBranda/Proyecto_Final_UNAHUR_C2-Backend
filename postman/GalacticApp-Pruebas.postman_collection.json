@@ -33,6 +33,10 @@
       "value": ""
     },
     {
+      "key": "tokenTecnicoAnterior",
+      "value": ""
+    },
+    {
       "key": "coordinadorUsuario",
       "value": ""
     },
@@ -180,6 +184,33 @@
           }
         },
         {
+          "name": "GET SESION ACTUAL (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve el usuario de la sesión y un token renovado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.mensaje).to.eql('Sesión renovada');",
+                  "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(respuesta.usuario.usuario).to.eql('admin');",
+                  "  pm.expect(respuesta.usuario).to.not.have.property('passwordHash');",
+                  "  pm.expect(respuesta.expiresIn).to.eql(3600);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion"
+          }
+        },
+        {
           "name": "POST LOGIN CON CONTRASEÑA INCORRECTA",
           "event": [
             {
@@ -258,6 +289,66 @@
           }
         },
         {
+          "name": "POST LOGIN ADMIN DESDE LA APP MOBILE (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La app móvil es solo para técnicos. Administradores y coordinadores ingresan desde la web.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"admin\",\n  \"plataforma\": \"mobile\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET LA SESION WEB DEL ADMIN SIGUE ABIERTA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El intento desde mobile no cerró la sesión web\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion"
+          }
+        },
+        {
           "name": "GET SIN TOKEN (DEBE RECHAZAR)",
           "event": [
             {
@@ -277,6 +368,31 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET SESION SIN TOKEN (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requiere autenticación\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion",
             "auth": {
               "type": "noauth"
             }
@@ -1118,6 +1234,7 @@
                   "  const respuesta = pm.response.json();",
                   "  pm.expect(respuesta.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
                   "  pm.expect(respuesta).to.have.property('jornadaActiva');",
+                  "  pm.collectionVariables.set('tokenTecnicoAnterior', pm.collectionVariables.get('tokenTecnico'));",
                   "  pm.collectionVariables.set('tokenTecnico', respuesta.token);",
                   "});"
                 ]
@@ -1144,6 +1261,73 @@
             },
             "auth": {
               "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET SESION TECNICO TRAE SU VEHICULO Y SU JORNADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Al recargar, el técnico recupera su vehículo y su jornada', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(respuesta).to.have.property('jornadaActiva');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET CON EL TOKEN DE LA SESION ANTERIOR (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Un ingreso nuevo cierra la sesión anterior', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('SESION_REEMPLAZADA');",
+                  "  pm.expect(pm.response.json().mensaje).to.eql('Tu sesión se cerró porque se ingresó con tu usuario desde otro lugar.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnicoAnterior}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3955,6 +4139,69 @@
           }
         },
         {
+          "name": "POST CERRAR SESION (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Sesión cerrada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/logout",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET CON TOKEN DE SESION CERRADA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Después de salir, el token ya no sirve\", function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "DEL ELIMINAR COORDINADOR",
           "event": [
             {
@@ -3974,6 +4221,38 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/api/usuarios/{{coordinadorId}}"
+          }
+        },
+        {
+          "name": "GET SESION DE USUARIO ELIMINADO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La sesión ya no es válida. Ingresá de nuevo.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/sesion",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         }
       ]

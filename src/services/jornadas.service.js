@@ -1,5 +1,6 @@
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
+import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { imagenesService } from './imagenes.service.js';
 import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 
@@ -73,6 +74,15 @@ export const jornadasService = {
       return resultado(403, { mensaje: 'Solo puedes finalizar tu propia jornada' });
     }
     if (!jornada.activa) return resultado(400, { mensaje: 'La jornada ya está finalizada' });
+    // El control final (kilometraje, litros, estado y 4 fotos) es del vehículo: si el técnico no
+    // tiene uno asignado, la jornada se cierra sin control (solo observaciones, opcionales).
+    const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: jornada.tecnicoId });
+    if (!vehiculo) {
+      return resultado(200, await cerrarJornada(jornada, {
+        sinVehiculo: true,
+        ...elegir(body, ['observaciones']),
+      }));
+    }
     const errorImagenes = await imagenesService.validarReferencias(body?.imagenes, usuario, {
       minimo: IMAGENES_CIERRE_JORNADA,
       maximo: IMAGENES_CIERRE_JORNADA,
@@ -84,20 +94,10 @@ export const jornadasService = {
           : errorImagenes,
       });
     }
-    const finalizada = await jornadasRepository.actualizar(jornada.id, {
-      fin: new Date().toISOString(),
-      activa: false,
-      controlFinal: elegir(body, ['kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
-    });
-    // Si quedaron otras jornadas activas del mismo técnico (datos viejos o de prueba), se cierran
-    // con duración 0 para que no sumen horas: el técnico deja de figurar en jornada.
-    const duplicadas = await jornadasRepository.listar({ tecnicoId: jornada.tecnicoId, activa: true });
-    await Promise.all(duplicadas.map((duplicada) => jornadasRepository.actualizar(duplicada.id, {
-      activa: false,
-      fin: duplicada.inicio,
-      cerradaAutomaticamente: true,
-    })));
-    return resultado(200, finalizada);
+    return resultado(200, await cerrarJornada(
+      jornada,
+      elegir(body, ['kilometrajeFinal', 'kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
+    ));
   },
 
   async eliminar(jornadaId, usuario) {
@@ -106,3 +106,21 @@ export const jornadasService = {
     return eliminada ? resultado(200, eliminada) : resultado(404, { mensaje: 'Jornada no encontrada' });
   },
 };
+
+// Cierra la jornada con su control final.
+async function cerrarJornada(jornada, controlFinal) {
+  const finalizada = await jornadasRepository.actualizar(jornada.id, {
+    fin: new Date().toISOString(),
+    activa: false,
+    controlFinal,
+  });
+  // Si quedaron otras jornadas activas del mismo técnico (datos viejos o de prueba), se cierran
+  // con duración 0 para que no sumen horas: el técnico deja de figurar en jornada.
+  const duplicadas = await jornadasRepository.listar({ tecnicoId: jornada.tecnicoId, activa: true });
+  await Promise.all(duplicadas.map((duplicada) => jornadasRepository.actualizar(duplicada.id, {
+    activa: false,
+    fin: duplicada.inicio,
+    cerradaAutomaticamente: true,
+  })));
+  return finalizada;
+}

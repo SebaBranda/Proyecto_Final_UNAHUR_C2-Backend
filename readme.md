@@ -305,6 +305,8 @@ GET http://localhost:3000/
 | `GET` | `/` | Estado del servicio |
 | `GET` | `/api/ping` | Verificar comunicación con la API |
 | `POST` | `/api/auth/login` | Autenticar usuario y emitir JWT |
+| `GET` | `/api/auth/sesion` | Datos de la sesión actual y token renovado (recargar la web sin volver a ingresar) |
+| `POST` | `/api/auth/logout` | Cerrar la sesión: el token deja de servir |
 | `GET` | `/api/usuarios` | Listar usuarios; admite `?pagina=1&limite=20&buscar=texto&rol=Tecnico&estado=Activos` |
 | `GET` | `/api/usuarios/:id` | Obtener usuario |
 | `POST` | `/api/usuarios` | Crear usuario |
@@ -366,6 +368,8 @@ Body:
 ```
 
 Con credenciales correctas responde `200` con un token Bearer, vencimiento de 3600 segundos y datos públicos del usuario. Credenciales incorrectas o cuenta inactiva responden `401`; si falta usuario o contraseña responde `400`.
+
+**Una sola sesión por usuario.** Cada login abre una sesión nueva (se guarda en `sesionId` del usuario y viaja en el token como `sid`) y cierra la anterior, sea web o mobile. Un token de una sesión vieja responde `401` con `codigo: "SESION_REEMPLAZADA"`. La app mobile envía `"plataforma": "mobile"` en el login: si el usuario no es técnico responde `403` sin abrir sesión.
 
 Usuarios de demostración disponibles:
 

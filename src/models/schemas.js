@@ -11,6 +11,9 @@ export const Usuario = mongoose.model('Usuario', new Schema({
   nombre: { type: String, required: true, select: false },
   rolId: { type: Number, ref: 'Rol', required: true, index: true },
   activo: { type: Boolean, default: true },
+  // Sesión vigente del usuario (una sola por usuario, web o mobile). Cada login la reemplaza.
+  // null = sin sesión abierta. No se devuelve en las consultas comunes (select: false).
+  sesionId: { type: String, default: null, select: false },
 }, { timestamps: true }));
 
 export const AdminProfile = mongoose.model('AdminProfile', new Schema({

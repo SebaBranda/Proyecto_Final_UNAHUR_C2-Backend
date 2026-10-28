@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { usuariosCrud, tecnicosCrud, resumenUsuarios } from '../controllers/usuarios.controller.js';
 import { clientesCrud } from '../controllers/clientes.controller.js';
-import { iniciarSesion } from '../controllers/auth.controller.js';
+import { cerrarSesion, iniciarSesion, obtenerSesion } from '../controllers/auth.controller.js';
 import { ubicacionesTecnicos } from '../controllers/ubicaciones.controller.js';
 import { autenticar } from '../middleware/auth.middleware.js';
 import { autorizarRoles } from '../middleware/authorize.middleware.js';
@@ -14,6 +14,10 @@ const router = Router();
 
 router.post('/auth/login', iniciarSesion);
 router.use(autenticar);
+// Sesión actual y token renovado (recargar la página sin volver a ingresar).
+router.get('/auth/sesion', obtenerSesion);
+// Cierra la sesión (sus tokens dejan de servir en todos lados).
+router.post('/auth/logout', cerrarSesion);
 router.get('/usuarios', usuariosCrud.listar);
 router.get('/usuarios/resumen', autorizarRoles(1), resumenUsuarios);
 router.get('/usuarios/:id', usuariosCrud.obtener);

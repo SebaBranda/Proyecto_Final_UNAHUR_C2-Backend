@@ -69,6 +69,21 @@ class UsuariosRepository {
     return registro ? this.combinarPerfil(registro) : null;
   }
 
+  // Sesión vigente y estado del usuario: lo consulta el middleware en cada pedido.
+  async sesionVigente(id) {
+    return Usuario.findOne({ id }).select('sesionId activo -_id').lean();
+  }
+
+  // Guarda la sesión nueva del usuario (login): reemplaza la anterior.
+  async guardarSesion(id, sesionId) {
+    await Usuario.updateOne({ id }, { $set: { sesionId } });
+  }
+
+  // Cierra la sesión solo si sigue siendo la indicada (un logout viejo no cierra una sesión nueva).
+  async cerrarSesion(id, sesionId) {
+    await Usuario.updateOne({ id, sesionId }, { $set: { sesionId: null } });
+  }
+
   async buscarCredencialesPorUsuario(nombreUsuario) {
     const registro = await Usuario.findOne({ usuario: nombreUsuario })
       .select('+passwordHash +nombre')
