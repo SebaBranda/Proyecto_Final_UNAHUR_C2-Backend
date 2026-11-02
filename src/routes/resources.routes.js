@@ -49,7 +49,7 @@ router.post('/jornadas', jornadasController.crear);
 router.delete('/jornadas/:id', autorizarRoles(1, 2), jornadasController.eliminar);
 router.patch('/jornadas/:id/finalizar', jornadasController.finalizar);
 router.get('/reclamos', reclamosController.listar);
-router.get('/reclamos/resumen', autorizarRoles(1, 2), reclamosController.resumen);
+router.get('/reclamos/resumen', reclamosController.resumen);
 router.get('/reclamos/opciones', autorizarRoles(1, 2), reclamosController.opciones);
 router.post('/reclamos', reclamosController.crear);
 router.delete('/reclamos/:id', autorizarRoles(1, 2), reclamosController.eliminar);

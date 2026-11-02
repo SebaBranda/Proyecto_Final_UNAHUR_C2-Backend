@@ -1,5 +1,6 @@
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
+import { JORNADA_INACTIVA, jornadaActivaDelTecnico } from '../utils/jornadaActiva.js';
 import {
   obtenerPaginacion, regexDeBusqueda, respuestaPaginada, textoDeBusqueda,
 } from '../utils/paginacion.js';
@@ -15,6 +16,7 @@ export const clientesService = {
     if (!FILTRO_POR_ESTADO[estado]) return respuesta(400, { mensaje: 'El estado debe ser Todos, Activos o Inactivos' });
     const filtro = { ...FILTRO_POR_ESTADO[estado] };
     if (usuarioAutenticado?.rolId === 3) {
+      if (!(await jornadaActivaDelTecnico(usuarioAutenticado))) return respuesta(403, JORNADA_INACTIVA);
       const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
       filtro.id = { $in: [...new Set(reclamos.map((reclamo) => reclamo.clienteId))] };
     }
@@ -34,6 +36,7 @@ export const clientesService = {
     const cliente = await clientesRepository.buscarPorId(id);
     if (!cliente) return respuesta(404, { mensaje: 'Cliente no encontrado' });
     if (usuarioAutenticado?.rolId === 3) {
+      if (!(await jornadaActivaDelTecnico(usuarioAutenticado))) return respuesta(403, JORNADA_INACTIVA);
       const reclamos = await reclamosRepository.listar({ tecnicoId: Number(usuarioAutenticado.id) });
       if (!reclamos.some((reclamo) => reclamo.clienteId === id)) {
         return respuesta(403, { mensaje: 'No tienes acceso a este cliente' });

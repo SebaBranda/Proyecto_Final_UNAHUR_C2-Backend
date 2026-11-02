@@ -1853,7 +1853,7 @@
     },
     {
       "name": "5. Reclamos",
-      "description": "Ciclo: Abierto → Asignado → En progreso → Finalizado (o Bloqueado). Cada rol solo puede modificar ciertos campos.",
+      "description": "Ciclo: Abierto → Asignado → En progreso → Finalizado (o Bloqueado). Cada rol solo puede modificar ciertos campos. Sin jornada activa, el técnico no ve sus reclamos ni los datos de sus clientes (403 JORNADA_INACTIVA); solo el resumen con cantidades.",
       "item": [
         {
           "name": "GET TODOS LOS RECLAMOS",
@@ -2126,15 +2126,243 @@
           }
         },
         {
-          "name": "GET RESUMEN DE RECLAMOS COMO TECNICO (DEBE RECHAZAR)",
+          "name": "GET RESUMEN DE RECLAMOS SIN JORNADA (TECNICO)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Rechazado por rol\", function () {",
+                  "pm.test('Devuelve solo las cantidades del técnico', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const resumen = pm.response.json();",
+                  "  pm.expect(resumen).to.have.all.keys('jornadaActiva', 'asignados', 'enProgreso', 'urgentes');",
+                  "  pm.expect(resumen.jornadaActiva).to.eql(false);",
+                  "  pm.expect(resumen.asignados).to.eql(1);",
+                  "  pm.expect(resumen.enProgreso).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/resumen",
+            "description": "Sin jornada activa el técnico solo ve cuántos reclamos tiene (sin datos de clientes).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECLAMOS SIN JORNADA ACTIVA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechazado: el técnico no tiene la jornada activa', function () {",
                   "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('JORNADA_INACTIVA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH COMENZAR RECLAMO SIN JORNADA ACTIVA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechazado: el técnico no tiene la jornada activa', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('JORNADA_INACTIVA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"En progreso\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET CLIENTES SIN JORNADA ACTIVA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechazado: el técnico no tiene la jornada activa', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('JORNADA_INACTIVA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes?limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET CLIENTE SIN JORNADA ACTIVA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechazado: el técnico no tiene la jornada activa', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('JORNADA_INACTIVA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST INICIAR JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jornada iniciada', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const jornada = pm.response.json();",
+                  "  pm.expect(jornada.activa).to.eql(true);",
+                  "  pm.collectionVariables.set('jornadaId', jornada.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometrajeInicial\": 1510,\n  \"observaciones\": \"Inicio desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN DE RECLAMOS CON JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Indica que la jornada está activa', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().jornadaActiva).to.eql(true);",
                   "});"
                 ]
               }
@@ -3195,10 +3423,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Reclamo finalizado con los ids de sus 2 imágenes', function () {",
+                  "pm.test('Reclamo finalizado con los ids de sus 2 imágenes y en la jornada activa', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const reclamo = pm.response.json();",
                   "  pm.expect(reclamo.estado).to.eql('Finalizado');",
+                  "  pm.expect(reclamo.jornadaId).to.eql(Number(pm.collectionVariables.get('jornadaId')));",
                   "  pm.expect(reclamo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesReclamo')));",
                   "});"
                 ]
@@ -3214,9 +3443,10 @@
               }
             ],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "description": "El jornadaId que envíe la app se ignora: el backend usa la jornada activa del técnico.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"imagenes\": {{imagenesReclamo}}\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"jornadaId\": 999999,\n  \"imagenes\": {{imagenesReclamo}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3318,56 +3548,8 @@
     },
     {
       "name": "7. Jornadas",
-      "description": "El técnico inicia y finaliza su propia jornada. Para finalizarla se exigen exactamente 4 imágenes del vehículo (subidas antes con POST /imagenes); los mismos ids se registran en el control del vehículo.",
+      "description": "El técnico inicia su jornada (en \"5. Reclamos\", antes de trabajar los reclamos) y la finaliza acá. Para finalizarla se exigen exactamente 4 imágenes del vehículo (subidas antes con POST /imagenes); los mismos ids se registran en el control del vehículo.",
       "item": [
-        {
-          "name": "POST INICIAR JORNADA (TECNICO)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Jornada iniciada', function () {",
-                  "  pm.response.to.have.status(201);",
-                  "  const jornada = pm.response.json();",
-                  "  pm.expect(jornada.activa).to.eql(true);",
-                  "  pm.collectionVariables.set('jornadaId', jornada.id);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/jornadas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"kilometrajeInicial\": 1510,\n  \"observaciones\": \"Inicio desde Postman\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenTecnico}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
         {
           "name": "POST INICIAR OTRA JORNADA CON UNA ACTIVA (DEBE RECHAZAR)",
           "event": [
@@ -3640,6 +3822,38 @@
           }
         },
         {
+          "name": "GET RECLAMOS CON LA JORNADA FINALIZADA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechazado: el técnico no tiene la jornada activa', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().codigo).to.eql('JORNADA_INACTIVA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "PATCH FINALIZAR UNA JORNADA YA FINALIZADA",
           "event": [
             {
@@ -3693,10 +3907,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Cada jornada trae la lista de sus servicios finalizados', function () {",
+                  "pm.test('La jornada trae el reclamo que se finalizó durante ella', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const jornada = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('jornadaId')));",
-                  "  pm.expect(jornada.servicios).to.be.an('array');",
+                  "  pm.expect(jornada.servicios.map((servicio) => servicio.id)).to.include(Number(pm.collectionVariables.get('reclamoId')));",
                   "});"
                 ]
               }

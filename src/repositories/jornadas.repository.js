@@ -18,6 +18,11 @@ class JornadasRepository {
     return Jornada.findOne({ id }).select('-_id -__v').lean();
   }
 
+  // Jornada en curso del técnico (la más reciente si quedó más de una), o null.
+  async buscarActiva(tecnicoId) {
+    return Jornada.findOne({ tecnicoId, activa: true }).sort({ inicio: -1 }).select('-_id -__v').lean();
+  }
+
   async crear(datos) {
     const id = datos.id ?? await this.siguienteId();
     return (await Jornada.create({ ...datos, id })).toObject();

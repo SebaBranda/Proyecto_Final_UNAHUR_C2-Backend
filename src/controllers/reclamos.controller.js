@@ -4,7 +4,7 @@ const responder = (res, resultado) => res.status(resultado.status).json(resultad
 
 export const reclamosController = {
   listar: async (req, res) => responder(res, await reclamosService.listar(req.usuarioAutenticado, req.query)),
-  resumen: async (req, res) => responder(res, await reclamosService.resumen()),
+  resumen: async (req, res) => responder(res, await reclamosService.resumen(req.usuarioAutenticado)),
   opciones: async (req, res) => responder(res, await reclamosService.opciones()),
   crear: async (req, res) => responder(res, await reclamosService.crear(req.body, req.usuarioAutenticado)),
   eliminar: async (req, res) => responder(res, await reclamosService.eliminar(req.params.id, req.usuarioAutenticado)),
