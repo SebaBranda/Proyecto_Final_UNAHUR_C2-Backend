@@ -3,6 +3,7 @@ import { clientesRepository } from '../repositories/clientes.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { imagenesService } from './imagenes.service.js';
 import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
+import { JORNADA_INACTIVA, jornadaActivaDelTecnico } from '../utils/jornadaActiva.js';
 
 const MAXIMO_IMAGENES_RECLAMO = 5;
 
@@ -65,7 +66,9 @@ export const reclamosService = {
   // Admin y coordinador: del más nuevo al más viejo.
   // Técnico: en el orden en que tiene que trabajarlos (en progreso, asignados por prioridad y fecha
   // de visita, finalizados del más reciente al más viejo) y con cuántos reclamos tiene en cada estado.
+  // Sin jornada activa, el técnico recibe 403 (codigo JORNADA_INACTIVA): solo puede ver el resumen.
   async listar(usuario, { estado, tecnicoId, desde, hasta, pagina, limite } = {}) {
+    if (!esGestion(usuario) && !(await jornadaActivaDelTecnico(usuario))) return resultado(403, JORNADA_INACTIVA);
     if (estado !== undefined && estado !== 'Todos' && !estadosReclamo.has(estado)) {
       return resultado(400, { mensaje: 'Estado de reclamo inválido' });
     }
@@ -119,8 +122,24 @@ export const reclamosService = {
     });
   },
 
-  // Totales para el panel: los cuenta Mongo, no se traen los reclamos.
-  async resumen() {
+  // Admin y coordinador: totales para el panel (los cuenta Mongo, no se traen los reclamos).
+  // Técnico: cuántos reclamos tiene pendientes, aunque no tenga la jornada activa (solo cantidades,
+  // sin datos de clientes), para la pantalla que le pide iniciar la jornada.
+  async resumen(usuario) {
+    if (!esGestion(usuario)) {
+      const tecnicoId = aId(usuario.id);
+      const [porEstado, urgentes, jornada] = await Promise.all([
+        reclamosRepository.contarPorEstado({ tecnicoId }),
+        reclamosRepository.contar({ tecnicoId, estado: { $in: ['Asignado', 'En progreso'] }, prioridad: 'Urgente' }),
+        jornadaActivaDelTecnico(usuario),
+      ]);
+      return resultado(200, {
+        jornadaActiva: Boolean(jornada),
+        asignados: porEstado.Asignado || 0,
+        enProgreso: porEstado['En progreso'] || 0,
+        urgentes,
+      });
+    }
     const [pendientes, serviciosGestionados] = await Promise.all([
       reclamosRepository.contar({ estado: { $ne: 'Finalizado' } }),
       reclamosRepository.contar({ $or: [{ esOrden: true }, { tipo: { $in: ['Instalación', 'Baja de servicio'] } }] }),
@@ -187,7 +206,14 @@ export const reclamosService = {
     if (!esGestion(usuario) && reclamo.tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes actualizar reclamos asignados a ti' });
     }
+    const jornada = await jornadaActivaDelTecnico(usuario);
+    if (!esGestion(usuario) && !jornada) return resultado(403, JORNADA_INACTIVA);
     const cambios = elegir(body, esGestion(usuario) ? camposEstadoGestion : camposEstadoTecnico);
+    // El servicio que finaliza el técnico cuenta en su jornada activa: la pone el backend, no la app.
+    if (jornada) {
+      delete cambios.jornadaId;
+      if (cambios.estado === 'Finalizado') cambios.jornadaId = jornada.id;
+    }
     if (cambios.inicioServicio !== undefined) {
       if (!esObjeto(cambios.inicioServicio)) return resultado(400, { mensaje: 'El control de inicio no es válido' });
       cambios.inicioServicio = elegir(cambios.inicioServicio, ['kilometraje', 'litros', 'estado', 'imagenes']);

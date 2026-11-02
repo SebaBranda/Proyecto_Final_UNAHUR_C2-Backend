@@ -371,6 +371,8 @@ Con credenciales correctas responde `200` con un token Bearer, vencimiento de 36
 
 **Una sola sesión por usuario.** Cada login abre una sesión nueva (se guarda en `sesionId` del usuario y viaja en el token como `sid`) y cierra la anterior, sea web o mobile. Un token de una sesión vieja responde `401` con `codigo: "SESION_REEMPLAZADA"`. La app mobile envía `"plataforma": "mobile"` en el login: si el usuario no es técnico responde `403` sin abrir sesión.
 
+**Sin jornada activa, el técnico no trabaja reclamos.** Mientras no tenga una jornada iniciada, `GET /reclamos`, `PATCH /reclamos/:id/estado`, `GET /clientes` y `GET /clientes/:id` le responden `403` con `codigo: "JORNADA_INACTIVA"`. Puede ver su vehículo y sus jornadas, e iniciar una nueva. `GET /reclamos/resumen` le devuelve solo cantidades (`{ jornadaActiva, asignados, enProgreso, urgentes }`), sin datos de clientes, para la pantalla que le pide iniciar la jornada. Cuando el técnico finaliza un reclamo, el backend lo asocia a su jornada activa e ignora el `jornadaId` que envíe la app.
+
 Usuarios de demostración disponibles:
 
 | Usuario | Contraseña |
