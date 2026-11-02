@@ -9,6 +9,7 @@ import { vehiculosController } from '../controllers/vehiculos.controller.js';
 import { reclamosController } from '../controllers/reclamos.controller.js';
 import { jornadasController } from '../controllers/jornadas.controller.js';
 import { imagenesController } from '../controllers/imagenes.controller.js';
+import { reportesController } from '../controllers/reportes.controller.js';
 
 const router = Router();
 
@@ -59,5 +60,14 @@ router.get('/imagenes', imagenesController.listar);
 router.get('/imagenes/:id', imagenesController.obtener);
 router.get('/ubicaciones-tecnicos', ubicacionesTecnicos.listar);
 router.patch('/ubicaciones-tecnicos/:tecnicoId', ubicacionesTecnicos.actualizar);
+router.get('/reportes/fuentes', autorizarRoles(1, 2), reportesController.fuentes);
+router.post('/reportes/vista-previa', autorizarRoles(1, 2), reportesController.vistaPrevia);
+router.post('/reportes/exportar', autorizarRoles(1, 2), reportesController.exportar);
+router.get('/reportes/plantillas', autorizarRoles(1, 2), reportesController.plantillas);
+router.get('/reportes', autorizarRoles(1, 2), reportesController.listar);
+router.get('/reportes/:id', autorizarRoles(1, 2), reportesController.obtener);
+router.post('/reportes', autorizarRoles(1, 2), reportesController.crear);
+router.put('/reportes/:id', autorizarRoles(1, 2), reportesController.actualizar);
+router.delete('/reportes/:id', autorizarRoles(1, 2), reportesController.eliminar);
 
 export default router;

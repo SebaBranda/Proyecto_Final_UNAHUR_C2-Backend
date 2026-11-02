@@ -96,3 +96,14 @@ export const Jornada = mongoose.model('Jornada', new Schema({
   controlInicial: Schema.Types.Mixed,
   controlFinal: Schema.Types.Mixed,
 }, opcionesBase));
+
+export const Reporte = mongoose.model('Reporte', new Schema({
+  id: { type: Number, required: true, unique: true, index: true },
+  nombre: { type: String, required: true, trim: true },
+  descripcion: { type: String, default: '' },
+  definicion: { type: Schema.Types.Mixed, required: true },
+  creadoPor: { type: Number, ref: 'Usuario', required: true, index: true },
+  compartidoCon: { type: [Number], default: [] },
+  creadoEn: { type: Date, default: Date.now },
+  modificadoEn: { type: Date, default: Date.now },
+}, { versionKey: false }));
