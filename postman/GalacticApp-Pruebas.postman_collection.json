@@ -103,6 +103,14 @@
     {
       "key": "imagenPrueba",
       "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    },
+    {
+      "key": "reporteGuardadoId",
+      "value": ""
+    },
+    {
+      "key": "clienteFormulaId",
+      "value": ""
     }
   ],
   "item": [
@@ -4208,7 +4216,992 @@
       ]
     },
     {
-      "name": "9. Limpieza",
+      "name": "9. Reportes",
+      "description": "Constructor de reportes: catálogo de fuentes y columnas por rol, plantillas, vista previa (lista o resumen), exportación a CSV y reportes guardados. Las filas traen solo las columnas que el rol puede ver.",
+      "item": [
+        {
+          "name": "GET FUENTES DE REPORTES (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae las 6 fuentes; el admin ve los datos personales de los clientes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const fuentes = pm.response.json().fuentes;",
+                  "  pm.expect(fuentes.map((fuente) => fuente.clave)).to.have.members(['reclamos', 'clientes', 'tecnicos', 'vehiculos', 'jornadas', 'controles']);",
+                  "  const clientes = fuentes.find((fuente) => fuente.clave === 'clientes');",
+                  "  pm.expect(clientes.columnas.map((columna) => columna.campo)).to.include.members(['documento', 'email']);",
+                  "  const estado = fuentes.find((fuente) => fuente.clave === 'reclamos').columnas.find((columna) => columna.campo === 'estado');",
+                  "  pm.expect(estado.opciones).to.include('Bloqueado');",
+                  "  pm.expect(estado.operadores).to.include('esUnoDe');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/fuentes"
+          }
+        },
+        {
+          "name": "GET FUENTES DE REPORTES (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El coordinador no ve columnas con datos personales', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const fuentes = pm.response.json().fuentes;",
+                  "  const campos = (clave) => fuentes.find((fuente) => fuente.clave === clave).columnas.map((columna) => columna.campo);",
+                  "  pm.expect(campos('clientes')).to.not.include.members(['documento']);",
+                  "  pm.expect(campos('clientes')).to.not.include('email');",
+                  "  pm.expect(campos('tecnicos')).to.not.include('documento');",
+                  "  pm.expect(campos('tecnicos')).to.not.include('fechaNacimiento');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/fuentes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET FUENTES COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rechazado por rol\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/fuentes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET PLANTILLAS Y SUS RESULTADOS (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plantillas = pm.response.json();",
+                  "pm.test('Cada plantilla tiene tema, nombre, descripción y definición', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(plantillas.length).to.be.at.least(10);",
+                  "  plantillas.forEach((plantilla) => pm.expect(plantilla).to.include.keys('id', 'tema', 'nombre', 'descripcion', 'definicion'));",
+                  "});",
+                  "plantillas.forEach((plantilla) => {",
+                  "  pm.sendRequest({",
+                  "    url: pm.variables.get('baseUrl') + '/api/reportes/vista-previa',",
+                  "    method: 'POST',",
+                  "    header: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + pm.collectionVariables.get('tokenCoordinador') },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ definicion: plantilla.definicion }) },",
+                  "  }, (error, respuesta) => {",
+                  "    pm.test('La plantilla \"' + plantilla.nombre + '\" funciona', function () {",
+                  "      pm.expect(error).to.eql(null);",
+                  "      pm.expect(respuesta.code, respuesta.text()).to.eql(200);",
+                  "    });",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/plantillas",
+            "description": "Ejecuta cada plantilla con POST /reportes/vista-previa: todas tienen que responder 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA DE RECLAMOS (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve una página con solo las columnas del catálogo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.vista).to.eql('lista');",
+                  "  pm.expect(respuesta.datos.length).to.be.at.most(5);",
+                  "  pm.expect(respuesta.paginacion.limite).to.eql(5);",
+                  "  pm.expect(respuesta.indicadores).to.be.an('array').that.is.not.empty;",
+                  "  const permitidas = respuesta.columnas.map((columna) => columna.campo);",
+                  "  respuesta.datos.forEach((fila) => Object.keys(fila).forEach((campo) => pm.expect(permitidas).to.include(campo)));",
+                  "  pm.expect(JSON.stringify(respuesta.datos)).to.not.include('clienteId');",
+                  "  const ids = respuesta.datos.map((fila) => fila.id);",
+                  "  pm.expect(ids).to.eql([...ids].sort((a, b) => b - a));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\",\n      \"estado\",\n      \"cliente\"\n    ],\n    \"filtros\": [],\n    \"orden\": {\n      \"campo\": \"id\",\n      \"sentido\": \"desc\"\n    }\n  },\n  \"pagina\": 1,\n  \"limite\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA DE CLIENTES SIN DATOS PERSONALES (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ninguna fila trae documento ni email', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.response.json().datos.forEach((fila) => {",
+                  "    pm.expect(fila).to.not.have.property('documento');",
+                  "    pm.expect(fila).to.not.have.property('email');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"clientes\",\n    \"columnas\": [\n      \"nombre\"\n    ],\n    \"filtros\": []\n  },\n  \"limite\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA CON UNA COLUMNA SOLO DEL ADMIN (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La columna \\\"documento\\\" no está disponible.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"clientes\",\n    \"columnas\": [\n      \"nombre\",\n      \"documento\"\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA CON UN ORDEN DE OTRA FUENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El orden elegido no es válido para esta fuente de datos.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"vehiculos\",\n    \"columnas\": [\n      \"patente\"\n    ],\n    \"orden\": {\n      \"campo\": \"creadoEn\",\n      \"sentido\": \"desc\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA CON UN FILTRO SIN VALOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Completá el valor del filtro \\\"Estado\\\".\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ],\n    \"filtros\": [\n      {\n        \"campo\": \"estado\",\n        \"operador\": \"esUnoDe\",\n        \"valor\": []\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA CON UN FILTRO VACIO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Hay un filtro incompleto.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ],\n    \"filtros\": [\n      null\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST VISTA PREVIA CON FILTRO ENTRE FECHAS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El filtro \"entre\" acepta un rango de días', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().total).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\",\n      \"creadoEn\"\n    ],\n    \"filtros\": [\n      {\n        \"campo\": \"creadoEn\",\n        \"operador\": \"entre\",\n        \"valor\": [\n          \"2000-01-01\",\n          \"2099-12-31\"\n        ]\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST JORNADA DE PRUEBA EN EL REPORTE DE JORNADAS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Muestra los kilómetros, el vehículo y el servicio de la jornada', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const [jornada] = pm.response.json().datos;",
+                  "  pm.expect(jornada.kmInicial).to.eql(1510);",
+                  "  pm.expect(jornada.kmFinal).to.eql(1540);",
+                  "  pm.expect(jornada.kmRecorridos).to.eql(30);",
+                  "  pm.expect(jornada.conVehiculo).to.eql(true);",
+                  "  pm.expect(jornada.estado).to.eql('Finalizada');",
+                  "  pm.expect(jornada.serviciosFinalizados).to.eql(1);",
+                  "  pm.expect(jornada.duracionHoras).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"jornadas\",\n    \"columnas\": [\"id\", \"kmInicial\", \"kmFinal\", \"kmRecorridos\"],\n    \"filtros\": [{ \"campo\": \"id\", \"operador\": \"igual\", \"valor\": {{jornadaId}} }]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CONTROLES DEL VEHICULO DE PRUEBA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cada control trae fecha, kilometraje y quién lo cargó', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const controles = pm.response.json().datos;",
+                  "  const final = controles.find((control) => control.kilometraje === 1540);",
+                  "  pm.expect(final, 'control final de la jornada').to.exist;",
+                  "  pm.expect(final.fecha).to.be.a('string');",
+                  "  pm.expect(final.tecnico).to.not.eql('');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"controles\",\n    \"columnas\": [\"fecha\", \"patente\", \"tecnico\", \"kilometraje\"],\n    \"filtros\": [{ \"campo\": \"patente\", \"operador\": \"esUnoDe\", \"valor\": [\"{{patentePrueba}}\"] }]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST RESUMEN DE RECLAMOS POR ESTADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Agrupa con la cantidad y el porcentaje de cada estado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const respuesta = pm.response.json();",
+                  "  pm.expect(respuesta.vista).to.eql('resumen');",
+                  "  pm.expect(respuesta.encabezados).to.eql({ grupo: 'Estado', valor: 'Cantidad de reclamos' });",
+                  "  const suma = respuesta.grupos.reduce((total, grupo) => total + grupo.valor, 0);",
+                  "  pm.expect(suma).to.eql(respuesta.total);",
+                  "  respuesta.grupos.forEach((grupo) => pm.expect(grupo).to.include.keys('clave', 'etiqueta', 'valor', 'porcentaje'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ],\n    \"agrupacion\": {\n      \"por\": \"estado\",\n      \"calculo\": \"cantidad\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST RESUMEN DE RECLAMOS POR MES",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Las fechas se agrupan por mes, en orden', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const claves = pm.response.json().grupos.map((grupo) => grupo.clave).filter(Boolean);",
+                  "  claves.forEach((clave) => pm.expect(clave).to.match(/^\\d{4}-\\d{2}$/));",
+                  "  pm.expect(claves).to.eql([...claves].sort());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/vista-previa",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ],\n    \"agrupacion\": {\n      \"por\": \"creadoEn\",\n      \"calculo\": \"cantidad\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE CON NOMBRE DE FORMULA (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cliente creado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('clienteFormulaId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"=HYPERLINK(\\\"http://ejemplo.com\\\")\",\n  \"telefono\": \"-1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST EXPORTAR CSV PROTEGE LAS FORMULAS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CSV para Excel en español, con las fórmulas neutralizadas', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "  pm.expect(pm.response.headers.get('Content-Disposition')).to.match(/Clientes-formula-\\d{4}-\\d{2}-\\d{2}\\.csv/);",
+                  "  const lineas = pm.response.text().replace(/^\\uFEFF/, '').split('\\r\\n');",
+                  "  pm.expect(lineas[0]).to.eql('\"Nombre\";\"Teléfono\";\"Reclamos en total\"');",
+                  "  pm.expect(lineas[1]).to.eql('\"\\'=HYPERLINK(\"\"http://ejemplo.com\"\")\";\"\\'-1234\";\"0\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/exportar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Clientes fórmula\",\n  \"definicion\": {\n    \"fuente\": \"clientes\",\n    \"columnas\": [\n      \"nombre\",\n      \"telefono\",\n      \"cantidadReclamos\"\n    ],\n    \"filtros\": [\n      {\n        \"campo\": \"nombre\",\n        \"operador\": \"contiene\",\n        \"valor\": \"HYPERLINK\"\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST EXPORTAR CSV CON TODAS LAS FILAS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Exporta todas las filas (no solo una página) con fechas DD/MM/AAAA HH:mm', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const lineas = pm.response.text().replace(/^\\uFEFF/, '').split('\\r\\n');",
+                  "  pm.expect(lineas.length - 1).to.eql(Number(pm.response.headers.get('X-Total-Filas')));",
+                  "  pm.expect(lineas[1].split(';')[1]).to.match(/^\"\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}\"$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/exportar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Todos los reclamos\",\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\",\n      \"creadoEn\",\n      \"horasResolucion\"\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST EXPORTAR UN RESUMEN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El CSV del resumen trae el grupo, la cantidad y el porcentaje', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const encabezado = pm.response.text().replace(/^\\uFEFF/, '').split('\\r\\n')[0];",
+                  "  pm.expect(encabezado).to.eql('\"Estado\";\"Cantidad de reclamos\";\"% del total\"');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/exportar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Por estado\",\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ],\n    \"agrupacion\": {\n      \"por\": \"estado\",\n      \"calculo\": \"cantidad\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST COMPARTIR CON COORDINADORES UN REPORTE CON DATOS PERSONALES (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Para compartirlo con los coordinadores, quitá lo que ellos no pueden ver: Documento.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Clientes con DNI\",\n  \"compartidoCon\": [\n    2\n  ],\n  \"definicion\": {\n    \"fuente\": \"clientes\",\n    \"columnas\": [\n      \"nombre\",\n      \"documento\"\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST GUARDAR REPORTE (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reporte guardado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const reporte = pm.response.json();",
+                  "  pm.expect(reporte.esAutor).to.eql(true);",
+                  "  pm.expect(reporte.puedeEditar).to.eql(true);",
+                  "  pm.collectionVariables.set('reporteGuardadoId', reporte.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Bloqueados de Postman\",\n  \"descripcion\": \"Prueba\",\n  \"compartidoCon\": [\n    2\n  ],\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\",\n      \"motivoBloqueo\"\n    ],\n    \"filtros\": [\n      {\n        \"campo\": \"estado\",\n        \"operador\": \"esUnoDe\",\n        \"valor\": [\n          \"Bloqueado\"\n        ]\n      }\n    ],\n    \"orden\": null\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET MIS REPORTES (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Incluye el reporte guardado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().map((reporte) => reporte.id)).to.include(Number(pm.collectionVariables.get('reporteGuardadoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET REPORTE NO COMPARTIDO CON EL ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Reporte no encontrado\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/{{reporteGuardadoId}}"
+          }
+        },
+        {
+          "name": "PUT MODIFICAR REPORTE (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reporte modificado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().nombre).to.eql('Bloqueados (renombrado)');",
+                  "  pm.expect(pm.response.json().compartidoCon).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reportes/{{reporteGuardadoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Bloqueados (renombrado)\",\n  \"definicion\": {\n    \"fuente\": \"reclamos\",\n    \"columnas\": [\n      \"id\"\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DEL ELIMINAR REPORTE (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Reporte eliminado\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reportes/{{reporteGuardadoId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Limpieza",
       "description": "Borra todo lo creado por la colección, en orden inverso a las dependencias.",
       "item": [
         {
@@ -4306,6 +5299,28 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR CLIENTE CON NOMBRE DE FORMULA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente eliminado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteFormulaId}}"
           }
         },
         {

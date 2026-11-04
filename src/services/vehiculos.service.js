@@ -231,6 +231,8 @@ export const vehiculosService = {
     const control = {
       ...elegir(body, ['kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
       fechaControl: new Date().toISOString(),
+      // Quién cargó el control (lo muestra el reporte de controles de vehículos).
+      registradoPor: aId(usuario.id),
     };
     const controles = controlesVigentes(vehiculo.controles);
     return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, {

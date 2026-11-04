@@ -373,6 +373,16 @@ Con credenciales correctas responde `200` con un token Bearer, vencimiento de 36
 
 **Sin jornada activa, el técnico no trabaja reclamos.** Mientras no tenga una jornada iniciada, `GET /reclamos`, `PATCH /reclamos/:id/estado`, `GET /clientes` y `GET /clientes/:id` le responden `403` con `codigo: "JORNADA_INACTIVA"`. Puede ver su vehículo y sus jornadas, e iniciar una nueva. `GET /reclamos/resumen` le devuelve solo cantidades (`{ jornadaActiva, asignados, enProgreso, urgentes }`), sin datos de clientes, para la pantalla que le pide iniciar la jornada. Cuando el técnico finaliza un reclamo, el backend lo asocia a su jornada activa e ignora el `jornadaId` que envíe la app.
 
+**Reportes (administrador y coordinador).** Cada fuente de datos (reclamos, clientes, técnicos, vehículos, jornadas y controles de vehículos) está en su propio archivo en `src/services/reportes/fuentes/`, con sus columnas y quién puede ver cada una (documento, email y fecha de nacimiento, solo el administrador). La web manda una definición `{ fuente, columnas, filtros, orden, agrupacion }` que se valida contra ese catálogo:
+
+| Endpoint | Qué hace |
+|---|---|
+| `GET /reportes/fuentes` | Fuentes, columnas, operadores y opciones que puede usar el rol |
+| `GET /reportes/plantillas` | Reportes listos para usar, agrupados por tema |
+| `POST /reportes/vista-previa` | Una página del resultado (o el resumen, si hay agrupación), con indicadores. Las filas traen solo las columnas permitidas |
+| `POST /reportes/exportar` | CSV completo (hasta 10.000 filas): separador `;`, UTF-8 con BOM, fechas `DD/MM/AAAA HH:mm` en hora de Argentina y fórmulas neutralizadas |
+| `GET/POST/PUT/DELETE /reportes` | Reportes guardados: propios o compartidos con un rol. Solo el autor o un administrador los modifica |
+
 Usuarios de demostración disponibles:
 
 | Usuario | Contraseña |
