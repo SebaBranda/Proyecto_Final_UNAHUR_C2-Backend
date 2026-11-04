@@ -209,6 +209,15 @@ export const reclamosService = {
     const jornada = await jornadaActivaDelTecnico(usuario);
     if (!esGestion(usuario) && !jornada) return resultado(403, JORNADA_INACTIVA);
     const cambios = elegir(body, esGestion(usuario) ? camposEstadoGestion : camposEstadoTecnico);
+    if (!esGestion(usuario) && cambios.estado === 'En progreso' && reclamo.estado !== 'En progreso') {
+      const enProgreso = await reclamosRepository.contar({
+        tecnicoId: aId(usuario.id),
+        estado: 'En progreso',
+      });
+      if (enProgreso > 0) {
+        return resultado(409, { mensaje: 'Finalizá el reclamo en progreso antes de comenzar otro.' });
+      }
+    }
     // El servicio que finaliza el técnico cuenta en su jornada activa: la pone el backend, no la app.
     if (jornada) {
       delete cambios.jornadaId;

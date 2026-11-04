@@ -17,6 +17,12 @@ const IMAGENES_CIERRE_JORNADA = 4;
 export const jornadasService = {
   async listar(usuario, query = {}) {
     const filtro = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
+    const rango = validarRangoFechas(query);
+    if (rango.error) return resultado(400, { mensaje: rango.error });
+    if (rango.desde || rango.hasta) filtro.inicio = {
+      ...(rango.desde ? { $gte: rango.desde } : {}),
+      ...(rango.hasta ? { $lte: rango.hasta } : {}),
+    };
     const paginacion = obtenerPaginacion(query);
     const pagina = await jornadasRepository.listarPaginado(filtro, paginacion);
     const jornadas = pagina.datos;
@@ -34,18 +40,30 @@ export const jornadasService = {
   },
 
   // Contadores del "Resumen de servicios" del técnico: total de servicios finalizados y cuántos
-  // desde la fecha "desde" (inicio de la semana, del mes o del año, calculado por el navegador).
-  async resumen(usuario, { desde } = {}) {
-    const fechaDesde = desde ? new Date(desde) : null;
-    if (fechaDesde && Number.isNaN(fechaDesde.getTime())) {
-      return resultado(400, { mensaje: 'La fecha "desde" no es válida' });
-    }
-    const finalizados = await reclamosRepository.listar({ tecnicoId: aId(usuario.id), estado: 'Finalizado' });
+  // desde/hasta son opcionales; cuando se informan, el hasta incluye todo ese día.
+  async resumen(usuario, { desde, hasta } = {}) {
+    const rango = validarRangoFechas({ desde, hasta });
+    if (rango.error) return resultado(400, { mensaje: rango.error });
+    const [finalizados, jornadas] = await Promise.all([
+      reclamosRepository.listar({ tecnicoId: aId(usuario.id), estado: 'Finalizado' }),
+      jornadasRepository.listar({ tecnicoId: aId(usuario.id), fin: { $ne: null } }),
+    ]);
     const fechaDeServicio = (reclamo) => new Date(reclamo.finalizadoEn || reclamo.fechaProgramada || reclamo.creadoEn);
+    const jornadasDelPeriodo = jornadas.filter((jornada) => (
+      (!rango.desde || new Date(jornada.inicio) >= rango.desde)
+      && (!rango.hasta || new Date(jornada.inicio) <= rango.hasta)
+    ));
+    const horasTrabajadas = jornadasDelPeriodo.reduce((total, jornada) => (
+      total + Math.max(0, new Date(jornada.fin) - new Date(jornada.inicio)) / 3600000
+    ), 0);
     return resultado(200, {
       totalServicios: finalizados.length,
-      serviciosEnPeriodo: fechaDesde
-        ? finalizados.filter((reclamo) => fechaDeServicio(reclamo) >= fechaDesde).length
+      horasTrabajadas: Number(horasTrabajadas.toFixed(1)),
+      serviciosEnPeriodo: rango.desde || rango.hasta
+        ? finalizados.filter((reclamo) => (
+          (!rango.desde || fechaDeServicio(reclamo) >= rango.desde)
+          && (!rango.hasta || fechaDeServicio(reclamo) <= rango.hasta)
+        )).length
         : finalizados.length,
     });
   },
@@ -106,6 +124,25 @@ export const jornadasService = {
     return eliminada ? resultado(200, eliminada) : resultado(404, { mensaje: 'Jornada no encontrada' });
   },
 };
+
+function validarRangoFechas({ desde, hasta } = {}) {
+  const fechaDesde = convertirFecha(desde, false);
+  const fechaHasta = convertirFecha(hasta, true);
+  if (desde && !fechaDesde) return { error: 'La fecha "desde" no es válida' };
+  if (hasta && !fechaHasta) return { error: 'La fecha "hasta" no es válida' };
+  if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+    return { error: 'La fecha "desde" debe ser anterior o igual a "hasta"' };
+  }
+  return { desde: fechaDesde, hasta: fechaHasta };
+}
+
+function convertirFecha(valor, finDelDia) {
+  if (!valor) return null;
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(valor))
+    ? new Date(`${valor}T${finDelDia ? '23:59:59.999' : '00:00:00.000'}`)
+    : new Date(valor);
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
 
 // Cierra la jornada con su control final.
 async function cerrarJornada(jornada, controlFinal) {
