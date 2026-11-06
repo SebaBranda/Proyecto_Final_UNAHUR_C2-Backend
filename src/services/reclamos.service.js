@@ -1,6 +1,7 @@
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
+import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { imagenesService } from './imagenes.service.js';
 import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 import { JORNADA_INACTIVA, jornadaActivaDelTecnico } from '../utils/jornadaActiva.js';
@@ -19,11 +20,32 @@ const elegir = (body, campos) => Object.fromEntries(
 
 const estadosReclamo = new Set(['Abierto', 'Asignado', 'En progreso', 'Bloqueado', 'Finalizado']);
 const prioridadesReclamo = new Set(['Normal', 'Alta', 'Urgente']);
-const camposEstadoTecnico = [
-  'estado', 'observaciones', 'finalizadoEn', 'jornadaId', 'comentarioFinalizacion',
-  'motivoBloqueo', 'vehiculoId', 'inicioServicio',
-];
+// Lo que puede mandar cada rol. La fecha de finalización, la jornada y el vehículo los pone el backend.
+const camposEstadoTecnico = ['estado', 'observaciones', 'comentarioFinalizacion', 'motivoBloqueo'];
 const camposEstadoGestion = [...camposEstadoTecnico, 'notasCoordinador', 'prioridad', 'fechaProgramada'];
+// Pasos que puede dar el técnico con su reclamo: comenzarlo, finalizarlo o bloquearlo.
+// Reabrir, reasignar o desbloquear lo hace el coordinador.
+const PASOS_DEL_TECNICO = {
+  Asignado: ['En progreso', 'Bloqueado'],
+  'En progreso': ['Finalizado', 'Bloqueado'],
+};
+const esTextoConContenido = (valor) => typeof valor === 'string' && valor.trim().length > 0;
+const CAMPOS_TEXTO = ['tipo', 'descripcion', 'observaciones', 'comentarioFinalizacion', 'motivoBloqueo', 'notasCoordinador'];
+const LARGO_MAXIMO = 2000;
+const esFechaValida = (valor) => typeof valor === 'string' && !Number.isNaN(new Date(valor).getTime());
+
+// Textos y fecha programada de un reclamo. Devuelve el mensaje de error o null.
+function validarDatos(datos) {
+  for (const campo of CAMPOS_TEXTO) {
+    if (datos[campo] == null) continue;
+    if (typeof datos[campo] !== 'string') return `El campo ${campo} debe ser texto`;
+    if (datos[campo].length > LARGO_MAXIMO) return `El campo ${campo} admite hasta ${LARGO_MAXIMO} caracteres`;
+  }
+  if (datos.fechaProgramada != null && datos.fechaProgramada !== '' && !esFechaValida(datos.fechaProgramada)) {
+    return 'La fecha programada no es válida';
+  }
+  return null;
+}
 
 // Datos del técnico que viajan dentro de cada reclamo.
 const tecnicoResumido = (tecnico) => (tecnico ? {
@@ -36,10 +58,12 @@ const tecnicoResumido = (tecnico) => (tecnico ? {
 } : null);
 
 // Agrega a cada reclamo su cliente y su técnico, así la pantalla no los pide aparte.
+// Solo se piden los clientes y técnicos de estos reclamos (no todos los de la base).
 async function conRelaciones(reclamos) {
+  const ids = (campo) => [...new Set(reclamos.map((reclamo) => reclamo[campo]).filter(Boolean))];
   const [clientes, tecnicos] = await Promise.all([
-    clientesRepository.listar(),
-    usuariosRepository.listar({ rolId: 3 }),
+    clientesRepository.listar({ id: { $in: ids('clienteId') } }),
+    usuariosRepository.listarPorIds(ids('tecnicoId'), { rolId: 3 }),
   ]);
   const clientesPorId = new Map(clientes.map(({ passwordHash, contrasena, ...cliente }) => [cliente.id, cliente]));
   const tecnicosPorId = new Map(tecnicos.map((tecnico) => [tecnico.id, tecnico]));
@@ -152,9 +176,12 @@ export const reclamosService = {
     if (!esObjeto(body) || !aId(body.clienteId)) return resultado(400, { mensaje: 'Se requiere clienteId' });
     const cliente = await clientesRepository.buscarPorId(aId(body.clienteId));
     if (!cliente) return resultado(400, { mensaje: 'El cliente no existe' });
+    if (cliente.activo === false) return resultado(400, { mensaje: 'El cliente está dado de baja' });
     if (typeof body.tipo !== 'string' || !body.tipo.trim()) {
       return resultado(400, { mensaje: 'El tipo de reclamo es obligatorio' });
     }
+    const errorDatos = validarDatos(body);
+    if (errorDatos) return resultado(400, { mensaje: errorDatos });
     if (body.prioridad != null && !prioridadesReclamo.has(body.prioridad)) {
       return resultado(400, { mensaje: 'Prioridad inválida' });
     }
@@ -209,7 +236,29 @@ export const reclamosService = {
     const jornada = await jornadaActivaDelTecnico(usuario);
     if (!esGestion(usuario) && !jornada) return resultado(403, JORNADA_INACTIVA);
     const cambios = elegir(body, esGestion(usuario) ? camposEstadoGestion : camposEstadoTecnico);
-    if (!esGestion(usuario) && cambios.estado === 'En progreso' && reclamo.estado !== 'En progreso') {
+    if (cambios.estado && !estadosReclamo.has(cambios.estado)) return resultado(400, { mensaje: 'Estado de reclamo inválido' });
+    const errorDatos = validarDatos(cambios);
+    if (errorDatos) return resultado(400, { mensaje: errorDatos });
+    const cambiaDeEstado = Boolean(cambios.estado) && cambios.estado !== reclamo.estado;
+    if (!esGestion(usuario)) {
+      const pasosPosibles = PASOS_DEL_TECNICO[reclamo.estado];
+      if (!pasosPosibles) {
+        return resultado(400, { mensaje: `El reclamo está ${reclamo.estado.toLowerCase()}: ya no lo podés modificar.` });
+      }
+      if (cambiaDeEstado && !pasosPosibles.includes(cambios.estado)) {
+        return resultado(400, { mensaje: `Un reclamo ${reclamo.estado.toLowerCase()} no puede pasar a "${cambios.estado}".` });
+      }
+    }
+    if (cambiaDeEstado && cambios.estado === 'Bloqueado' && !esTextoConContenido(cambios.motivoBloqueo)) {
+      return resultado(400, { mensaje: 'Contá el motivo del bloqueo.' });
+    }
+    if (cambiaDeEstado && cambios.estado === 'Finalizado') {
+      if (!esGestion(usuario) && !esTextoConContenido(cambios.comentarioFinalizacion)) {
+        return resultado(400, { mensaje: 'Escribí un comentario sobre el trabajo realizado.' });
+      }
+      cambios.finalizadoEn = new Date().toISOString();
+    }
+    if (!esGestion(usuario) && cambiaDeEstado && cambios.estado === 'En progreso') {
       const enProgreso = await reclamosRepository.contar({
         tecnicoId: aId(usuario.id),
         estado: 'En progreso',
@@ -217,24 +266,16 @@ export const reclamosService = {
       if (enProgreso > 0) {
         return resultado(409, { mensaje: 'Finalizá el reclamo en progreso antes de comenzar otro.' });
       }
+      // Comenzar es un solo paso: el control del vehículo se hace al iniciar y al finalizar la
+      // jornada. El backend anota con qué vehículo se hizo el servicio (null si no tiene uno).
+      const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: aId(usuario.id) });
+      cambios.vehiculoId = vehiculo?.id ?? null;
     }
     // El servicio que finaliza el técnico cuenta en su jornada activa: la pone el backend, no la app.
-    if (jornada) {
-      delete cambios.jornadaId;
-      if (cambios.estado === 'Finalizado') cambios.jornadaId = jornada.id;
-    }
-    if (cambios.inicioServicio !== undefined) {
-      if (!esObjeto(cambios.inicioServicio)) return resultado(400, { mensaje: 'El control de inicio no es válido' });
-      cambios.inicioServicio = elegir(cambios.inicioServicio, ['kilometraje', 'litros', 'estado', 'imagenes']);
-      if (cambios.inicioServicio.imagenes !== undefined) {
-        const error = await imagenesService.validarReferencias(cambios.inicioServicio.imagenes, usuario, { maximo: 4 });
-        if (error) return resultado(400, { mensaje: error });
-      }
-    }
+    if (jornada && cambiaDeEstado && cambios.estado === 'Finalizado') cambios.jornadaId = jornada.id;
     if (cambios.estado === 'Bloqueado' && Object.prototype.hasOwnProperty.call(body, 'tecnicoId') && body.tecnicoId == null) {
       cambios.tecnicoId = null;
     }
-    if (cambios.estado && !estadosReclamo.has(cambios.estado)) return resultado(400, { mensaje: 'Estado de reclamo inválido' });
     if (cambios.prioridad && !prioridadesReclamo.has(cambios.prioridad)) return resultado(400, { mensaje: 'Prioridad inválida' });
 
     const imagenesActuales = reclamo.imagenes || [];

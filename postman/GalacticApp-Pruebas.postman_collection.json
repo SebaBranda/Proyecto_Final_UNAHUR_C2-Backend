@@ -69,6 +69,10 @@
       "value": ""
     },
     {
+      "key": "reclamoSegundoId",
+      "value": ""
+    },
+    {
       "key": "jornadaId",
       "value": ""
     },
@@ -101,6 +105,10 @@
       "value": "[]"
     },
     {
+      "key": "imagenesInicioJornada",
+      "value": "[]"
+    },
+    {
       "key": "imagenPrueba",
       "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
     },
@@ -110,6 +118,18 @@
     },
     {
       "key": "clienteFormulaId",
+      "value": ""
+    },
+    {
+      "key": "clienteExtraId",
+      "value": ""
+    },
+    {
+      "key": "patenteRepetida",
+      "value": ""
+    },
+    {
+      "key": "usuarioBloqueo",
       "value": ""
     }
   ],
@@ -246,6 +266,66 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"usuario\": \"admin\",\n  \"contrasena\": \"incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST LOGIN BLOQUEADO TRAS 5 INTENTOS FALLIDOS",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const usuario = 'bloqueo.' + Date.now();",
+                  "pm.collectionVariables.set('usuarioBloqueo', usuario);",
+                  "const intentar = (restantes) => {",
+                  "  if (restantes === 0) return;",
+                  "  pm.sendRequest({",
+                  "    url: pm.variables.get('baseUrl') + '/api/auth/login',",
+                  "    method: 'POST',",
+                  "    header: { 'Content-Type': 'application/json' },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ usuario, contrasena: 'incorrecta' }) },",
+                  "  }, () => intentar(restantes - 1));",
+                  "};",
+                  "intentar(5);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 429 y dice cuánto esperar', function () {",
+                  "  pm.response.to.have.status(429);",
+                  "  pm.expect(pm.response.json().mensaje).to.match(/^Demasiados intentos fallidos\\. Probá de nuevo en 5 minutos\\.$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Después de 5 contraseñas incorrectas seguidas, ese usuario no puede ingresar durante 5 minutos (429). Antes de este pedido se hacen los 5 intentos fallidos con un usuario de prueba.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{usuarioBloqueo}}\",\n  \"contrasena\": \"incorrecta\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -519,6 +599,78 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"usuario\": \"{{tecnicoUsuario}}\",\n  \"contrasena\": \"{{clavePrueba}}\",\n  \"nombre\": \"Técnico Postman\",\n  \"rolId\": 3,\n  \"perfil\": {\n    \"documento\": \"40999888\",\n    \"fechaNacimiento\": \"1992-05-10\",\n    \"vencimientoRegistro\": \"2028-05-10\",\n    \"telefono\": \"11-4000-0000\",\n    \"email\": \"tecnico.postman@galactic.app\",\n    \"direccion\": \"Dirección de prueba 123\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR USUARIO CON CONTRASEÑA CORTA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La contraseña debe tener al menos 8 caracteres\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"clave.corta\",\n  \"contrasena\": \"1234\",\n  \"nombre\": \"Clave Corta\",\n  \"rolId\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR TECNICO CON CORREO INVÁLIDO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El correo no es válido\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"correo.malo\",\n  \"contrasena\": \"ClaveDePrueba123\",\n  \"nombre\": \"Correo Malo\",\n  \"rolId\": 3,\n  \"perfil\": {\n    \"email\": \"no-es-correo\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -819,6 +971,200 @@
           }
         },
         {
+          "name": "GET TECNICOS COMO TECNICO (SOLO SE VE A SÍ MISMO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El técnico solo se ve a sí mismo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicos = pm.response.json().datos;",
+                  "  pm.expect(tecnicos).to.have.lengthOf(1);",
+                  "  pm.expect(tecnicos[0].id).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/tecnicos?limite=100",
+            "description": "El técnico no ve los datos personales (DNI, teléfono, correo, domicilio) de sus compañeros.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET OTRO TECNICO COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No tienes acceso a este usuario\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/tecnicos/3",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH EDITAR TECNICO CON LA SESION ABIERTA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario actualizado correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}",
+            "description": "Editar los datos de un usuario no le cierra la sesión (solo un cambio de rol o de contraseña la cierra).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"perfil\": {\n    \"direccion\": \"Av. Siempre Viva 742\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET LA SESION DEL TECNICO SIGUE ABIERTA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El token del técnico sigue sirviendo\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DEL ELIMINARSE A SÍ MISMO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No podés eliminar tu propio usuario.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/1",
+            "description": "Así siempre queda un administrador."
+          }
+        },
+        {
+          "name": "PATCH DESACTIVARSE A SÍ MISMO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No podés desactivar tu propio usuario ni cambiarte el rol.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/usuarios/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "POST CREAR USUARIO COMO COORDINADOR (DEBE RECHAZAR)",
           "event": [
             {
@@ -938,6 +1284,138 @@
                   "type": "string"
                 }
               ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE CON CAMPOS DESCONOCIDOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Creado con un id del backend', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().id).to.not.eql(777777);",
+                  "  pm.collectionVariables.set('clienteExtraId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "description": "El backend guarda solo los datos conocidos del cliente y pone el id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente Campos Extra\",\n  \"id\": 777777,\n  \"esAdmin\": true,\n  \"cualquierCosa\": {\n    \"a\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET EL CLIENTE NO GUARDA CAMPOS DESCONOCIDOS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sin esAdmin ni cualquierCosa', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.not.have.any.keys('esAdmin', 'cualquierCosa');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteExtraId}}"
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE CON CORREO INVÁLIDO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El correo no es válido\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Correo Malo\",\n  \"email\": \"no-es-correo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE CON TELÉFONO INVÁLIDO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El teléfono no es válido (solo números, espacios, guiones, + y paréntesis)\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Telefono Malo\",\n  \"telefono\": \"llamame\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -1336,6 +1814,52 @@
                   "type": "string"
                 }
               ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR VEHICULO CON PATENTE REPETIDA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('patenteRepetida', pm.collectionVariables.get('patentePrueba').replace(/\\s/g, '').toLowerCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Ya existe un vehículo con esa patente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos",
+            "description": "La patente se compara sin espacios ni mayúsculas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"{{patenteRepetida}}\",\n  \"marca\": \"Otra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -1813,6 +2337,144 @@
           }
         },
         {
+          "name": "PATCH CONTROL CON KILOMETRAJE MENOR AL ACTUAL (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El kilometraje no puede ser menor al actual del vehículo (1510 km).\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 100,\n  \"litros\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH CONTROL CON LITROS NEGATIVOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Los litros deben ser un número mayor o igual a 0.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1510,\n  \"litros\": -3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH PISAR EL KILOMETRAJE COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"No tienes permisos para modificar este vehículo\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"_operacion\": \"kilometraje\",\n  \"kilometraje\": {\n    \"actual\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "PATCH EDITAR VEHICULO COMO TECNICO (DEBE RECHAZAR)",
           "event": [
             {
@@ -1915,6 +2577,120 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"clienteId\": {{clienteId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO CON FECHA PROGRAMADA INVÁLIDA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La fecha programada no es válida\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"tipo\": \"Sin servicio\",\n  \"fechaProgramada\": \"no-es-fecha\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DEL DAR DE BAJA AL CLIENTE DE CAMPOS EXTRA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente dado de baja correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteExtraId}}"
+          }
+        },
+        {
+          "name": "POST CREAR RECLAMO PARA UN CLIENTE DADO DE BAJA (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El cliente está dado de baja\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteExtraId}},\n  \"tipo\": \"Sin servicio\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2313,17 +3089,206 @@
           }
         },
         {
-          "name": "POST INICIAR JORNADA (TECNICO)",
+          "name": "POST INICIAR JORNADA SIN CONTROL DEL VEHICULO (DEBE RECHAZAR)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Jornada iniciada', function () {",
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Completá el kilometraje del tablero para iniciar la jornada.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "description": "Con vehículo asignado, la jornada empieza con el control del vehículo: kilometraje, litros, estado y 4 fotos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometrajeInicial\": 1510\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST INICIAR JORNADA CON KILOMETRAJE MENOR AL ACTUAL (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El kilometraje no puede ser menor al actual del vehículo (1510 km).\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 100,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST INICIAR JORNADA SIN LAS 4 FOTOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Se requieren exactamente 4 imágenes del vehículo para iniciar la jornada.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST SUBIR 4 IMAGENES DEL INICIO DE JORNADA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('4 imágenes subidas', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('imagenesInicioJornada', JSON.stringify(pm.response.json().map((imagen) => imagen.id)));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/imagenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imagenes\": [\"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\", \"{{imagenPrueba}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST INICIAR JORNADA CON EL CONTROL DEL VEHICULO (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jornada iniciada con su control inicial', function () {",
                   "  pm.response.to.have.status(201);",
                   "  const jornada = pm.response.json();",
                   "  pm.expect(jornada.activa).to.eql(true);",
+                  "  pm.expect(jornada.controlInicial.kilometrajeInicial).to.eql(1510);",
+                  "  pm.expect(jornada.controlInicial.litros).to.eql(30);",
+                  "  pm.expect(jornada.controlInicial.imagenes).to.have.lengthOf(4);",
+                  "  pm.expect(jornada.controlInicial.vehiculoId).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
                   "  pm.collectionVariables.set('jornadaId', jornada.id);",
                   "});"
                 ]
@@ -2341,7 +3306,7 @@
             "url": "{{baseUrl}}/api/jornadas",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometrajeInicial\": 1510,\n  \"observaciones\": \"Inicio desde Postman\"\n}",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": {{imagenesInicioJornada}}\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2358,6 +3323,31 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "name": "GET EL CONTROL INICIAL QUEDA EN EL VEHICULO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El vehículo registra el control de inicio de jornada', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const vehiculo = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(vehiculo.kilometraje.actual).to.eql(1510);",
+                  "  pm.expect(vehiculo.ultimoControl.litros).to.eql(30);",
+                  "  pm.expect(vehiculo.ultimoControl.registradoPor).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos?limite=100"
           }
         },
         {
@@ -2405,7 +3395,8 @@
                   "  const datos = pm.response.json();",
                   "  pm.expect(datos).to.have.all.keys('clientes', 'tecnicos');",
                   "  datos.clientes.forEach((cliente) => pm.expect(cliente).to.have.all.keys('id', 'nombre', 'zona'));",
-                  "  datos.tecnicos.forEach((tecnico) => pm.expect(tecnico).to.have.all.keys('id', 'nombre', 'email'));",
+                  "  // El correo es opcional: un técnico sin correo llega sin esa clave.",
+                  "  datos.tecnicos.forEach((tecnico) => pm.expect(['id', 'nombre', 'email']).to.include.members(Object.keys(tecnico)));",
                   "  pm.expect(datos.clientes.map((cliente) => cliente.id)).to.include(Number(pm.collectionVariables.get('clienteId')));",
                   "  pm.expect(datos.tecnicos.map((tecnico) => tecnico.id)).to.include(Number(pm.collectionVariables.get('tecnicoId')));",
                   "});"
@@ -2629,11 +3620,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Reclamo en progreso y sin imágenes completas guardadas', function () {",
+                  "pm.test('Reclamo en progreso con el vehículo del técnico', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const reclamo = pm.response.json();",
                   "  pm.expect(reclamo.estado).to.eql('En progreso');",
-                  "  pm.expect(reclamo.inicioServicio).to.eql({ kilometraje: 1500, estado: 'Activo' });",
+                  "  pm.expect(reclamo.vehiculoId).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
                   "});"
                 ]
               }
@@ -2648,10 +3639,10 @@
               }
             ],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
-            "description": "inicioServicio guarda solo kilometraje, litros, estado e ids de imágenes: cualquier otro campo (por ejemplo una imagen completa) se descarta.",
+            "description": "Comenzar es un solo paso: el control del vehículo se hace al iniciar y al finalizar la jornada. El backend anota el vehículo del técnico.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"En progreso\",\n  \"vehiculoId\": {{vehiculoId}},\n  \"inicioServicio\": {\n    \"kilometraje\": 1500,\n    \"estado\": \"Activo\",\n    \"foto\": \"{{imagenPrueba}}\"\n  }\n}",
+              "raw": "{\n  \"estado\": \"En progreso\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2693,6 +3684,238 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos?estado=En progreso&limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST CREAR SEGUNDO RECLAMO PARA EL TECNICO (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Segundo reclamo asignado al técnico', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().estado).to.eql('Asignado');",
+                  "  pm.collectionVariables.set('reclamoSegundoId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"tecnicoId\": {{tecnicoId}},\n  \"tipo\": \"Sin servicio\",\n  \"descripcion\": \"Segundo reclamo de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH COMENZAR OTRO RECLAMO CON UNO EN CURSO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Finalizá el reclamo en progreso antes de comenzar otro.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoSegundoId}}/estado",
+            "description": "El técnico tiene que finalizar el reclamo en curso antes de comenzar otro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"En progreso\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR SIN HABERLO COMENZADO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Un reclamo asignado no puede pasar a \\\"Finalizado\\\".\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoSegundoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH VOLVER UN RECLAMO A ABIERTO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Un reclamo asignado no puede pasar a \\\"Abierto\\\".\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoSegundoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Abierto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH BLOQUEAR SIN MOTIVO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Contá el motivo del bloqueo.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoSegundoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Bloqueado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3358,7 +4581,7 @@
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"imagenes\": [\"{{imagenAjenaId}}\"]\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\",\n  \"imagenes\": [\"{{imagenAjenaId}}\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3404,57 +4627,7 @@
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"imagenes\": [\n    \"no-existe\"\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenTecnico}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "PATCH FINALIZAR RECLAMO CON IMAGENES (TECNICO)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Reclamo finalizado con los ids de sus 2 imágenes y en la jornada activa', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const reclamo = pm.response.json();",
-                  "  pm.expect(reclamo.estado).to.eql('Finalizado');",
-                  "  pm.expect(reclamo.jornadaId).to.eql(Number(pm.collectionVariables.get('jornadaId')));",
-                  "  pm.expect(reclamo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesReclamo')));",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
-            "description": "El jornadaId que envíe la app se ignora: el backend usa la jornada activa del técnico.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"jornadaId\": 999999,\n  \"imagenes\": {{imagenesReclamo}}\n}",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Listo\",\n  \"imagenes\": [\n    \"no-existe\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3500,7 +4673,108 @@
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"imagenes\": [\n    \"a\",\n    \"b\",\n    \"c\",\n    \"d\"\n  ]\n}",
+              "raw": "{\n  \"imagenes\": [\n    \"a\",\n    \"b\",\n    \"c\",\n    \"d\",\n    \"e\",\n    \"f\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR RECLAMO CON IMAGENES (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reclamo finalizado con los ids de sus 2 imágenes y en la jornada activa', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const reclamo = pm.response.json();",
+                  "  pm.expect(reclamo.estado).to.eql('Finalizado');",
+                  "  pm.expect(reclamo.jornadaId).to.eql(Number(pm.collectionVariables.get('jornadaId')));",
+                  "  pm.expect(reclamo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesReclamo')));",
+                  "});",
+                  "pm.test('La fecha y el vehículo los pone el backend', function () {",
+                  "  const reclamo = pm.response.json();",
+                  "  pm.expect(new Date(reclamo.finalizadoEn).getFullYear()).to.be.above(2020);",
+                  "  pm.expect(reclamo.vehiculoId).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "description": "La fecha de finalización, la jornada y el vehículo los pone el backend: lo que mande la app se ignora.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Finalizado\",\n  \"comentarioFinalizacion\": \"Se reemplazó el conector y se verificó la señal.\",\n  \"jornadaId\": 999999,\n  \"finalizadoEn\": \"2020-01-01T00:00:00.000Z\",\n  \"vehiculoId\": 999999,\n  \"imagenes\": {{imagenesReclamo}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH MODIFICAR UN RECLAMO FINALIZADO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El reclamo está finalizado: ya no lo podés modificar.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"En progreso\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3558,6 +4832,52 @@
       "name": "7. Jornadas",
       "description": "El técnico inicia su jornada (en \"5. Reclamos\", antes de trabajar los reclamos) y la finaliza acá. Para finalizarla se exigen exactamente 4 imágenes del vehículo (subidas antes con POST /imagenes); los mismos ids se registran en el control del vehículo.",
       "item": [
+        {
+          "name": "POST JORNADA PARA UN TECNICO INEXISTENTE (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El técnico indicado no existe\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tecnicoId\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
         {
           "name": "POST INICIAR OTRA JORNADA CON UNA ACTIVA (DEBE RECHAZAR)",
           "event": [
@@ -3733,17 +5053,16 @@
           }
         },
         {
-          "name": "PATCH CONTROL DEL VEHICULO CON IMAGENES (TECNICO)",
+          "name": "PATCH FINALIZAR JORNADA CON KILOMETRAJE MENOR AL ACTUAL (DEBE RECHAZAR)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Control registrado con los ids de las imágenes', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "  const ultimo = pm.response.json().controles.at(-1);",
-                  "  pm.expect(ultimo.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesJornada')));",
+                  "pm.test('Rechazado: el kilometraje no puede bajar', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.match(/^El kilometraje no puede ser menor al actual del vehículo/);",
                   "});"
                 ]
               }
@@ -3757,11 +5076,56 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
-            "description": "Al cerrar la jornada, la app registra primero el control del vehículo y después finaliza la jornada, con los mismos ids de imagen.",
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "raw": "{\n  \"kilometraje\": 100,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH FINALIZAR JORNADA CON LITROS NEGATIVOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Completá los litros de nafta.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": -3,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3817,6 +5181,41 @@
                 }
               }
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET EL CONTROL FINAL QUEDA EN EL VEHICULO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El vehículo quedó con el kilometraje y las fotos del cierre', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const vehiculo = pm.response.json().datos[0];",
+                  "  pm.expect(vehiculo.kilometraje.actual).to.eql(1540);",
+                  "  pm.expect(vehiculo.ultimoControl.imagenes).to.eql(JSON.parse(pm.collectionVariables.get('imagenesJornada')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos?limite=100",
+            "description": "Al finalizar la jornada, el backend registra el control final también en el vehículo (un solo pedido).",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3948,9 +5347,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Devuelve solo los contadores', function () {",
+                  "pm.test('Devuelve solo los contadores y las horas trabajadas', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json()).to.have.all.keys('totalServicios', 'serviciosEnPeriodo');",
+                  "  pm.expect(pm.response.json()).to.have.all.keys('totalServicios', 'serviciosEnPeriodo', 'horasTrabajadas');",
+                  "  pm.expect(pm.response.json().horasTrabajadas).to.be.a('number').that.is.at.least(0);",
                   "});"
                 ]
               }
@@ -3992,6 +5392,168 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/jornadas/resumen?desde=2099-01-01",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN EN UN RANGO DE FECHAS (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cuenta los servicios y las horas del rango', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const resumen = pm.response.json();",
+                  "  pm.expect(resumen.serviciosEnPeriodo).to.be.at.least(1);",
+                  "  pm.expect(resumen.horasTrabajadas).to.be.a('number').that.is.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas/resumen?desde=2000-01-01&hasta=2099-12-31",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS EN UN RANGO DE FECHAS (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae la jornada de prueba', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().datos.map((jornada) => jornada.id)).to.include(Number(pm.collectionVariables.get('jornadaId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?desde=2000-01-01&hasta=2099-12-31&limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS DESDE UNA FECHA FUTURA (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No hay jornadas en el futuro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().datos).to.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?desde=2099-01-01",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RESUMEN CON DESDE POSTERIOR A HASTA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La fecha \\\"desde\\\" debe ser anterior o igual a \\\"hasta\\\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas/resumen?desde=2026-12-01&hasta=2026-11-01",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS CON FECHA INVALIDA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"La fecha \\\"desde\\\" no es válida\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?desde=no-es-fecha",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -4846,7 +6408,7 @@
             "url": "{{baseUrl}}/api/clientes",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"=HYPERLINK(\\\"http://ejemplo.com\\\")\",\n  \"telefono\": \"-1234\"\n}",
+              "raw": "{\n  \"nombre\": \"=HYPERLINK(\\\"http://ejemplo.com\\\")\",\n  \"telefono\": \"-12345678\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4879,7 +6441,7 @@
                   "  pm.expect(pm.response.headers.get('Content-Disposition')).to.match(/Clientes-formula-\\d{4}-\\d{2}-\\d{2}\\.csv/);",
                   "  const lineas = pm.response.text().replace(/^\\uFEFF/, '').split('\\r\\n');",
                   "  pm.expect(lineas[0]).to.eql('\"Nombre\";\"Teléfono\";\"Reclamos en total\"');",
-                  "  pm.expect(lineas[1]).to.eql('\"\\'=HYPERLINK(\"\"http://ejemplo.com\"\")\";\"\\'-1234\";\"0\"');",
+                  "  pm.expect(lineas[1]).to.eql('\"\\'=HYPERLINK(\"\"http://ejemplo.com\"\")\";\"\\'-12345678\";\"0\"');",
                   "});"
                 ]
               }
@@ -5260,6 +6822,101 @@
           }
         },
         {
+          "name": "DEL DAR DE BAJA AL TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario dado de baja correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}",
+            "description": "Baja lógica: el técnico queda deshabilitado. Sus reclamos pendientes quedan sin técnico, su vehículo queda libre y los finalizados lo conservan."
+          }
+        },
+        {
+          "name": "GET EL TECNICO DADO DE BAJA SIGUE EN LA BASE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Existe y está deshabilitado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().activo).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+          }
+        },
+        {
+          "name": "GET RECLAMOS DEL TECNICO DADO DE BAJA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El pendiente queda Abierto y sin técnico; el finalizado lo conserva', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const reclamos = pm.response.json().datos;",
+                  "  const pendiente = reclamos.find((r) => r.id === Number(pm.collectionVariables.get('reclamoSegundoId')));",
+                  "  const finalizado = reclamos.find((r) => r.id === Number(pm.collectionVariables.get('reclamoId')));",
+                  "  pm.expect(pendiente.tecnicoId).to.eql(null);",
+                  "  pm.expect(pendiente.estado).to.eql('Abierto');",
+                  "  pm.expect(finalizado.tecnicoId).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
+                  "  pm.expect(finalizado.estado).to.eql('Finalizado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos?limite=100"
+          }
+        },
+        {
+          "name": "GET EL VEHICULO QUEDA LIBRE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sin técnico asignado', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().datos[0].tecnicoAsignado).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehiculos?buscar={{patentePrueba}}"
+          }
+        },
+        {
           "name": "DEL ELIMINAR RECLAMO",
           "event": [
             {
@@ -5278,6 +6935,27 @@
             "method": "DELETE",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos/{{reclamoId}}"
+          }
+        },
+        {
+          "name": "DEL ELIMINAR SEGUNDO RECLAMO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Segundo reclamo eliminado\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reclamos/{{reclamoSegundoId}}"
           }
         },
         {
@@ -5302,7 +6980,7 @@
           }
         },
         {
-          "name": "DEL ELIMINAR CLIENTE CON NOMBRE DE FORMULA",
+          "name": "DEL DAR DE BAJA AL CLIENTE CON NOMBRE DE FORMULA",
           "event": [
             {
               "listen": "test",
@@ -5311,7 +6989,7 @@
                 "exec": [
                   "pm.test('Responde 200 con mensaje claro', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente eliminado correctamente\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente dado de baja correctamente\");",
                   "});"
                 ]
               }
@@ -5324,7 +7002,7 @@
           }
         },
         {
-          "name": "DEL ELIMINAR CLIENTE",
+          "name": "DEL DAR DE BAJA AL CLIENTE",
           "event": [
             {
               "listen": "test",
@@ -5333,7 +7011,7 @@
                 "exec": [
                   "pm.test('Responde 200 con mensaje claro', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente eliminado correctamente\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente dado de baja correctamente\");",
                   "});"
                 ]
               }
@@ -5342,29 +7020,30 @@
           "request": {
             "method": "DELETE",
             "header": [],
-            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}",
+            "description": "Baja lógica: el cliente queda deshabilitado, no se borra."
           }
         },
         {
-          "name": "DEL ELIMINAR TECNICO",
+          "name": "GET EL CLIENTE DADO DE BAJA SIGUE EN LA BASE",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "pm.test('Existe y está deshabilitado', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario eliminado correctamente\");",
+                  "  pm.expect(pm.response.json().activo).to.eql(false);",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "DELETE",
+            "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/usuarios/{{tecnicoId}}"
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
           }
         },
         {
@@ -5431,7 +7110,7 @@
           }
         },
         {
-          "name": "DEL ELIMINAR COORDINADOR",
+          "name": "DEL DAR DE BAJA AL COORDINADOR",
           "event": [
             {
               "listen": "test",
@@ -5440,7 +7119,7 @@
                 "exec": [
                   "pm.test('Responde 200 con mensaje claro', function () {",
                   "  pm.response.to.have.status(200);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario eliminado correctamente\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Usuario dado de baja correctamente\");",
                   "});"
                 ]
               }
@@ -5453,7 +7132,7 @@
           }
         },
         {
-          "name": "GET SESION DE USUARIO ELIMINADO (DEBE RECHAZAR)",
+          "name": "GET SESION DE USUARIO DADO DE BAJA (DEBE RECHAZAR)",
           "event": [
             {
               "listen": "test",

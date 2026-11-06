@@ -41,7 +41,7 @@ const tecnicoResumido = (tecnico) => (tecnico ? {
 // Agrega a cada vehículo su técnico asignado (un solo pedido a la base para todos).
 async function conTecnico(vehiculos) {
   const ids = [...new Set(vehiculos.map((vehiculo) => vehiculo.tecnicoAsignado).filter(Boolean))];
-  const tecnicos = ids.length ? await usuariosRepository.listar({ rolId: 3 }) : [];
+  const tecnicos = await usuariosRepository.listarPorIds(ids, { rolId: 3 });
   const porId = new Map(tecnicos.map((tecnico) => [tecnico.id, tecnico]));
   return vehiculos.map((vehiculo) => ({
     ...vehiculo,
@@ -63,6 +63,7 @@ function validarDatosEditables({ seguro, ultimoService, detalle, enServicio }) {
   }
   if (!esFechaOVacia(ultimoService)) return 'La fecha del último service no es válida';
   if (!esTextoOVacio(detalle)) return 'El detalle debe ser texto';
+  if (detalle && detalle.length > 1000) return 'El detalle admite hasta 1000 caracteres';
   if (enServicio !== undefined && typeof enServicio !== 'boolean') return 'enServicio debe ser true o false';
   return null;
 }
@@ -143,6 +144,14 @@ export const vehiculosService = {
     if (!esObjeto(body) || typeof body.patente !== 'string' || !body.patente.trim()) {
       return resultado(400, { mensaje: 'La patente es obligatoria' });
     }
+    // La patente es única: se compara sin espacios, guiones ni mayúsculas ("AB 123 CD" = "ab123cd").
+    const normalizar = (patente) => String(patente ?? '').replace(/[\s-]/g, '').toUpperCase();
+    const patentes = (await vehiculosRepository.listar()).map((vehiculo) => normalizar(vehiculo.patente));
+    if (patentes.includes(normalizar(body.patente))) {
+      return resultado(400, { mensaje: 'Ya existe un vehículo con esa patente' });
+    }
+    const errorDatos = validarDatosEditables(body);
+    if (errorDatos) return resultado(400, { mensaje: errorDatos });
     const tecnicoId = body.tecnicoAsignado == null ? null : aId(body.tecnicoAsignado);
     if (body.tecnicoAsignado != null) {
       const error = await validarTecnico(tecnicoId);
@@ -162,29 +171,18 @@ export const vehiculosService = {
     return eliminado ? resultado(200, eliminado) : resultado(404, { mensaje: 'Vehículo no encontrado' });
   },
 
+  // Admin y coordinador solo pueden modificar el seguro, el último service, el detalle y si está
+  // en servicio. Patente, marca y modelo no se editan; el kilometraje cambia solo con
+  // PATCH /vehiculos/:id/kilometraje o con un control, que validan que no baje.
   async actualizar(vehiculoId, body, usuario) {
+    if (!esGestion(usuario)) return resultado(403, { mensaje: 'No tienes permisos para modificar este vehículo' });
     const { vehiculo, error } = await buscarPropio(vehiculoId, usuario);
     if (error) return error;
-    const operacion = body?._operacion;
-    if (!esGestion(usuario) && !['kilometraje', 'control'].includes(operacion)) {
-      return resultado(403, { mensaje: 'No tienes permisos para modificar este vehículo' });
-    }
-    // Admin y coordinador solo pueden modificar el seguro, el último service, el detalle y
-    // si está en servicio. Patente, marca, modelo y kilometraje no se editan.
-    const datos = operacion === 'kilometraje'
-      ? elegir(body, ['kilometraje'])
-      : operacion === 'control'
-        ? elegir(body, ['estado', 'kilometraje'])
-        : elegir(body, ['seguro', 'ultimoService', 'detalle', 'enServicio']);
+    const datos = elegir(body, ['seguro', 'ultimoService', 'detalle', 'enServicio']);
     if (!Object.keys(datos).length) return resultado(400, { mensaje: 'No hay campos modificables' });
-    if (!operacion) {
-      const error = validarDatosEditables(datos);
-      if (error) return resultado(400, { mensaje: error });
-      if (datos.seguro) datos.seguro = elegir(datos.seguro, ['compania', 'poliza', 'vence']);
-    }
-    if (datos.kilometraje !== undefined && Number(datos.kilometraje) < Number(vehiculo.kilometraje?.actual)) {
-      return resultado(400, { mensaje: 'El kilometraje debe ser válido y no menor al actual.' });
-    }
+    const errorDatos = validarDatosEditables(datos);
+    if (errorDatos) return resultado(400, { mensaje: errorDatos });
+    if (datos.seguro) datos.seguro = elegir(datos.seguro, ['compania', 'poliza', 'vence']);
     return resultado(200, await unoConTecnico(await vehiculosRepository.actualizar(vehiculo.id, datos)));
   },
 
@@ -221,7 +219,16 @@ export const vehiculosService = {
     const { vehiculo, error } = await buscarPropio(vehiculoId, usuario);
     if (error) return error;
     const kilometros = Number(body?.kilometraje);
-    if (!Number.isFinite(kilometros)) return resultado(400, { mensaje: 'El kilometraje es obligatorio' });
+    const kilometrajeActual = Number(vehiculo.kilometraje?.actual) || 0;
+    if (body?.kilometraje == null || body.kilometraje === '' || !Number.isFinite(kilometros)) {
+      return resultado(400, { mensaje: 'El kilometraje es obligatorio' });
+    }
+    if (kilometros < kilometrajeActual) {
+      return resultado(400, { mensaje: `El kilometraje no puede ser menor al actual del vehículo (${kilometrajeActual} km).` });
+    }
+    if (body.litros !== undefined && (body.litros === '' || !Number.isFinite(Number(body.litros)) || Number(body.litros) < 0)) {
+      return resultado(400, { mensaje: 'Los litros deben ser un número mayor o igual a 0.' });
+    }
     if (body?.imagenes !== undefined) {
       const errorImagenes = await imagenesService.validarReferencias(body.imagenes, usuario, {
         maximo: MAXIMO_IMAGENES_CONTROL,
@@ -229,7 +236,9 @@ export const vehiculosService = {
       if (errorImagenes) return resultado(400, { mensaje: errorImagenes });
     }
     const control = {
-      ...elegir(body, ['kilometraje', 'litros', 'estado', 'observaciones', 'imagenes']),
+      ...elegir(body, ['litros', 'estado', 'observaciones', 'imagenes']),
+      kilometraje: kilometros,
+      ...(body.litros !== undefined ? { litros: Number(body.litros) } : {}),
       fechaControl: new Date().toISOString(),
       // Quién cargó el control (lo muestra el reporte de controles de vehículos).
       registradoPor: aId(usuario.id),

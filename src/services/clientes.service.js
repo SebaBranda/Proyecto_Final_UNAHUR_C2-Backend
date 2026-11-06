@@ -7,6 +7,11 @@ import {
 
 const CAMPOS_BUSQUEDA = ['nombre', 'documento', 'telefono', 'email', 'direccion'];
 const FILTRO_POR_ESTADO = { Todos: {}, Activos: { activo: { $ne: false } }, Inactivos: { activo: false } };
+// Lo único que se guarda de un cliente (el id lo pone el backend).
+const CAMPOS_TEXTO = ['nombre', 'documento', 'telefono', 'email', 'direccion', 'zona'];
+const LARGO_MAXIMO = 200;
+const formatoEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const formatoTelefono = /^[0-9+()\-\s]{6,20}$/;
 
 export const clientesService = {
   // Filtros opcionales: buscar (nombre, DNI, teléfono, correo o domicilio) y estado (Todos, Activos, Inactivos).
@@ -52,8 +57,11 @@ export const clientesService = {
     if (typeof cuerpo.nombre !== 'string' || cuerpo.nombre.trim().length === 0) {
       return respuesta(400, { mensaje: 'Se requieren los campos: nombre' });
     }
+    const datos = camposDelCliente(cuerpo);
+    const error = validarCliente(datos);
+    if (error) return respuesta(400, { mensaje: error });
 
-    const creado = await clientesRepository.crear({ ...cuerpo, activo: true });
+    const creado = await clientesRepository.crear({ ...datos, activo: true });
     return respuesta(201, {
       mensaje: 'Cliente creado correctamente',
       id: creado.id,
@@ -71,12 +79,16 @@ export const clientesService = {
 
     const actual = await clientesRepository.buscarPorId(id);
     if (!actual) return respuesta(404, { mensaje: 'Cliente no encontrado' });
-    const actualizado = { ...actual, ...cuerpo, id };
+    const cambios = camposDelCliente(cuerpo);
+    if (!Object.keys(cambios).length) return respuesta(400, { mensaje: 'No hay campos modificables' });
+    const actualizado = { ...actual, ...cambios, id };
     if (typeof actualizado.nombre !== 'string' || actualizado.nombre.trim().length === 0) {
       return respuesta(400, { mensaje: 'Se requieren los campos: nombre' });
     }
+    const error = validarCliente(cambios);
+    if (error) return respuesta(400, { mensaje: error });
 
-    const guardado = await clientesRepository.actualizar(id, actualizado);
+    const guardado = await clientesRepository.actualizar(id, cambios);
     if (!guardado) return respuesta(404, { mensaje: 'Cliente no encontrado' });
     return respuesta(200, {
       mensaje: 'Cliente actualizado correctamente',
@@ -84,18 +96,54 @@ export const clientesService = {
     });
   },
 
+  // Baja lógica: el cliente queda deshabilitado (no se borra), así sus reclamos y los reportes
+  // lo conservan. Se puede volver a habilitar editándolo (activo: true).
   async eliminar(idParametro) {
     const id = convertirId(idParametro);
     if (id === null) return errorId();
 
-    const eliminado = await clientesRepository.eliminar(id);
-    if (!eliminado) return respuesta(404, { mensaje: 'Cliente no encontrado' });
+    const deshabilitado = await clientesRepository.actualizar(id, { activo: false });
+    if (!deshabilitado) return respuesta(404, { mensaje: 'Cliente no encontrado' });
     return respuesta(200, {
-      mensaje: 'Cliente eliminado correctamente',
+      mensaje: 'Cliente dado de baja correctamente',
       id,
     });
   },
 };
+
+// Solo los datos conocidos del cliente: nombre, documento, contacto, domicilio, zona,
+// coordenadas del domicilio y si está activo.
+function camposDelCliente(cuerpo) {
+  const datos = Object.fromEntries(
+    [...CAMPOS_TEXTO, 'coordenadas', 'activo']
+      .filter((campo) => Object.hasOwn(cuerpo, campo))
+      .map((campo) => [campo, cuerpo[campo]]),
+  );
+  CAMPOS_TEXTO.forEach((campo) => {
+    if (typeof datos[campo] === 'string') datos[campo] = datos[campo].trim();
+  });
+  return datos;
+}
+
+// Devuelve el mensaje de error para mostrar, o null si los datos son válidos.
+function validarCliente(datos) {
+  for (const campo of CAMPOS_TEXTO) {
+    if (datos[campo] == null || datos[campo] === '') continue;
+    if (typeof datos[campo] !== 'string') return `El campo ${campo} debe ser texto`;
+    if (datos[campo].length > LARGO_MAXIMO) return `El campo ${campo} admite hasta ${LARGO_MAXIMO} caracteres`;
+  }
+  if (datos.email && !formatoEmail.test(datos.email)) return 'El correo no es válido';
+  if (datos.telefono && !formatoTelefono.test(datos.telefono)) return 'El teléfono no es válido (solo números, espacios, guiones, + y paréntesis)';
+  if (datos.activo !== undefined && typeof datos.activo !== 'boolean') return 'El campo activo debe ser true o false';
+  if (datos.coordenadas != null) {
+    const { latitud, longitud } = datos.coordenadas;
+    if (!esObjeto(datos.coordenadas) || typeof latitud !== 'number' || typeof longitud !== 'number'
+      || latitud < -90 || latitud > 90 || longitud < -180 || longitud > 180) {
+      return 'Las coordenadas deben tener latitud y longitud válidas';
+    }
+  }
+  return null;
+}
 
 function respuesta(status, body) {
   return { status, body };

@@ -3,6 +3,7 @@ import { imagenesRepository } from '../repositories/imagenes.repository.js';
 
 export const MAXIMO_IMAGENES_POR_PEDIDO = 6;
 const MAXIMO_BYTES = 600 * 1024;
+const ESPERA_ANTES_DE_BORRAR_MS = 24 * 60 * 60 * 1000;
 const formatoDataUrl = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+=*)$/;
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
@@ -55,6 +56,12 @@ export const imagenesService = {
   async obtenerUna(id) {
     const [imagen] = await imagenesRepository.buscarPorIds([id]);
     return imagen ? resultado(200, datosPublicos(imagen)) : resultado(404, { mensaje: 'Imagen no encontrada' });
+  },
+
+  // Borra las fotos que se subieron pero nunca se guardaron en un registro (por ejemplo, un
+  // formulario que se canceló). Se esperan 24 horas por si alguien todavía está completándolo.
+  async limpiarSinUso() {
+    return imagenesRepository.eliminarSinUso(new Date(Date.now() - ESPERA_ANTES_DE_BORRAR_MS));
   },
 
   // Valida los ids que alguien quiere guardar en el campo "imagenes" de un registro.

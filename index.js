@@ -5,6 +5,7 @@ import path from 'node:path';
 import { crearAplicacion } from './src/app.js';
 import { conectarBaseDeDatos } from './src/config/database.js';
 import { sembrarDatosIniciales } from './src/config/seed.js';
+import { imagenesService } from './src/services/imagenes.service.js';
 import { generate } from 'selfsigned';
 
 dotenv.config();
@@ -21,6 +22,7 @@ async function iniciarServidor() {
     throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
   }
   await sembrarDatosIniciales();
+  programarLimpiezaDeImagenes();
 
   if (process.env.HTTPS_ENABLED === 'true') {
     const httpsOptions = await cargarCertificados();
@@ -33,6 +35,15 @@ async function iniciarServidor() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor HTTP escuchando en http://localhost:${PORT}`);
   });
+}
+
+// Al arrancar y cada 6 horas se borran las fotos subidas que nadie usó (ver imagenesService).
+function programarLimpiezaDeImagenes() {
+  const limpiar = () => imagenesService.limpiarSinUso()
+    .then((borradas) => { if (borradas) console.log(`Imágenes sin usar borradas: ${borradas}.`); })
+    .catch((error) => console.error('No se pudieron limpiar las imágenes sin usar:', error.message));
+  limpiar();
+  setInterval(limpiar, 6 * 60 * 60 * 1000).unref();
 }
 
 iniciarServidor().catch((error) => {

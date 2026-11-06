@@ -16,6 +16,10 @@ import {
 import { ROLES_DISPONIBLES } from '../config/roles.js';
 
 const ESTADOS_TECNICO = new Set(['Activo', 'Asignado', 'Libre']);
+const LARGO_MINIMO_CONTRASENA = 8;
+const LARGO_MAXIMO_TEXTO = 200;
+const formatoEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const formatoTelefono = /^[0-9+()\-\s]{6,20}$/;
 const ACTIVO_POR_ESTADO = { Todos: undefined, Activos: true, Inactivos: false };
 
 export const usuariosService = crearServicioUsuarios();
@@ -26,8 +30,9 @@ export const tecnicosService = {
   // Filtros opcionales: buscar (nombre, usuario, correo o DNI), estado (Activo, Asignado, Libre o
   // Todos; se calcula a partir de los reclamos) y activo=true (solo técnicos habilitados).
   async listar({ usuario, pagina, limite, buscar, estado, activo, usuarioAutenticado } = {}) {
+    // El técnico solo se ve a sí mismo (sin los datos personales de sus compañeros).
     if (![1, 2].includes(usuarioAutenticado?.rolId)) {
-      return usuariosService.listar({ usuario, pagina, limite, rolId: 3 });
+      return usuariosService.listar({ usuario, pagina, limite, rolId: 3, usuarioAutenticado });
     }
     if (estado && estado !== 'Todos' && !ESTADOS_TECNICO.has(estado)) {
       return respuesta(400, { mensaje: 'El estado debe ser Activo, Asignado, Libre o Todos' });
@@ -46,8 +51,8 @@ export const tecnicosService = {
     const paginaTecnicos = paginarEnMemoria(conDetalle, paginacion);
     return respuesta(200, respuestaPaginada(paginaTecnicos.datos, paginaTecnicos.total, paginacion));
   },
-  obtener(id) {
-    return usuariosService.obtener(id, { rolId: 3 });
+  obtener(id, { usuarioAutenticado } = {}) {
+    return usuariosService.obtener(id, { rolId: 3, usuarioAutenticado });
   },
 };
 
@@ -94,6 +99,12 @@ export async function validarUsuario(registro, actual, repository) {
   if (Object.hasOwn(registro, 'contrasena')
     && (typeof registro.contrasena !== 'string' || !registro.contrasena)) {
     return 'La contraseña no puede estar vacía';
+  }
+  if (Object.hasOwn(registro, 'contrasena') && registro.contrasena.length < LARGO_MINIMO_CONTRASENA) {
+    return `La contraseña debe tener al menos ${LARGO_MINIMO_CONTRASENA} caracteres`;
+  }
+  if (String(registro.usuario ?? '').length > LARGO_MAXIMO_TEXTO || String(registro.nombre ?? '').length > LARGO_MAXIMO_TEXTO) {
+    return `El usuario y el nombre admiten hasta ${LARGO_MAXIMO_TEXTO} caracteres`;
   }
   if (!Number.isInteger(registro.rolId) || !buscarRol(registro.rolId)) {
     return 'El rolId debe ser 1 (Administrador), 2 (Coordinador) o 3 (Tecnico)';
@@ -209,7 +220,7 @@ function crearServicioUsuarios() {
       });
     },
 
-    async actualizar(idParametro, cuerpo, { rolId: rolForzado } = {}) {
+    async actualizar(idParametro, cuerpo, { rolId: rolForzado, usuarioAutenticado } = {}) {
       const id = convertirId(idParametro);
       if (id === null) return errorId();
       if (!esObjeto(cuerpo) || Object.keys(cuerpo).length === 0) {
@@ -232,6 +243,10 @@ function crearServicioUsuarios() {
       if (actual.rolId !== registro.rolId && !entrada.datos.perfil) {
         registro.perfil = {};
       }
+      // Así siempre queda un administrador: nadie puede desactivarse ni cambiarse el rol a sí mismo.
+      if (id === Number(usuarioAutenticado?.id) && (registro.activo === false || registro.rolId !== actual.rolId)) {
+        return respuesta(400, { mensaje: 'No podés desactivar tu propio usuario ni cambiarte el rol.' });
+      }
       const error = validarCampos(registro, ['usuario', 'nombre'])
         || validarPerfil(registro.perfil, registro.rolId)
         || await validarUsuario(registro, actual, usuariosRepository);
@@ -243,24 +258,57 @@ function crearServicioUsuarios() {
         ...(rolForzado ? { rolId: rolForzado } : {}),
       });
       if (!guardado) return respuesta(404, { mensaje: 'Usuario no encontrado' });
+      // Un técnico que se deshabilita o deja de ser técnico suelta lo que tenía asignado.
+      const dejaDeTrabajar = guardado.activo === false && actual.activo !== false;
+      if (actual.rolId === 3 && (dejaDeTrabajar || guardado.rolId !== 3)) await liberarTecnico(id);
       return respuesta(200, {
         mensaje: 'Usuario actualizado correctamente',
         id,
       });
     },
 
-    async eliminar(idParametro, { rolId } = {}) {
+    // Baja lógica: el usuario queda deshabilitado (no se borra), así su historial y los reportes
+    // lo conservan. Si es técnico, suelta sus reclamos pendientes, su vehículo y su jornada.
+    async eliminar(idParametro, { rolId, usuarioAutenticado } = {}) {
       const id = convertirId(idParametro);
       if (id === null) return errorId();
+      if (id === Number(usuarioAutenticado?.id)) {
+        return respuesta(400, { mensaje: 'No podés eliminar tu propio usuario.' });
+      }
 
-      const eliminado = await usuariosRepository.eliminar(id, { rolId });
-      if (!eliminado) return respuesta(404, { mensaje: 'Usuario no encontrado' });
+      const deshabilitado = await usuariosRepository.actualizar(id, { activo: false }, { rolId });
+      if (!deshabilitado) return respuesta(404, { mensaje: 'Usuario no encontrado' });
+      if (deshabilitado.rolId === 3) await liberarTecnico(id);
       return respuesta(200, {
-        mensaje: 'Usuario eliminado correctamente',
+        mensaje: 'Usuario dado de baja correctamente',
         id,
       });
     },
   };
+}
+
+// Técnico dado de baja (o que deja de ser técnico): sus reclamos pendientes quedan sin técnico
+// (los asignados o en curso vuelven a "Abierto" para reasignarlos), su vehículo queda libre y, si
+// tenía la jornada activa, se cierra. Los reclamos finalizados lo conservan.
+async function liberarTecnico(tecnicoId) {
+  const [pendientes, vehiculos, jornadasActivas] = await Promise.all([
+    reclamosRepository.listar({ tecnicoId, estado: { $ne: 'Finalizado' } }),
+    vehiculosRepository.listar({ tecnicoAsignado: tecnicoId }),
+    jornadasRepository.listar({ tecnicoId, activa: true }),
+  ]);
+  const ahora = new Date().toISOString();
+  await Promise.all([
+    ...pendientes.map((reclamo) => reclamosRepository.actualizar(reclamo.id, {
+      tecnicoId: null,
+      ...(['Asignado', 'En progreso'].includes(reclamo.estado) ? { estado: 'Abierto' } : {}),
+    })),
+    ...vehiculos.map((vehiculo) => vehiculosRepository.actualizar(vehiculo.id, { tecnicoAsignado: null })),
+    ...jornadasActivas.map((jornada) => jornadasRepository.actualizar(jornada.id, {
+      activa: false,
+      fin: ahora,
+      controlFinal: { cerradaPorBaja: true, observaciones: 'Cerrada al dar de baja al técnico.' },
+    })),
+  ]);
 }
 
 // Vehículo sin el historial de controles: el listado no lo muestra.
@@ -270,31 +318,32 @@ const vehiculoResumido = (vehiculo) => {
   return datos;
 };
 
-// Agrega a cada técnico su vehículo asignado.
+// Agrega a cada técnico su vehículo asignado (solo se piden los vehículos de esos técnicos).
 async function conVehiculo(usuarios) {
-  if (!usuarios.some((usuario) => usuario.rolId === 3)) return usuarios;
-  const vehiculos = await vehiculosRepository.listar({ tecnicoAsignado: { $ne: null } });
+  const tecnicoIds = usuarios.filter((usuario) => usuario.rolId === 3).map((usuario) => usuario.id);
+  if (!tecnicoIds.length) return usuarios;
+  const vehiculos = await vehiculosRepository.listar({ tecnicoAsignado: { $in: tecnicoIds } });
   return usuarios.map((usuario) => (usuario.rolId === 3 ? {
     ...usuario,
     vehiculo: vehiculoResumido(vehiculos.find((vehiculo) => vehiculo.tecnicoAsignado === usuario.id)),
   } : usuario));
 }
 
-const horasDeJornada = (jornada) => (jornada.fin
-  ? (new Date(jornada.fin) - new Date(jornada.inicio)) / 3600000
-  : 0);
-
 // Agrega a cada técnico: estado (Activo, Asignado o Libre), el reclamo en curso o el próximo
-// asignado con su cliente, ubicación, jornada activa, paradas para el mapa y rendimiento.
-// El vehículo ya viene de usuariosService.listar.
+// asignado con su cliente, ubicación, jornada activa, paradas pendientes para el mapa y
+// rendimiento. El vehículo ya viene de usuariosService.listar.
+// No se lee el historial completo: solo los reclamos pendientes y sus clientes; los finalizados
+// y las horas (incluida la jornada en curso) los cuenta Mongo.
 async function tecnicosConDetalle(tecnicos) {
-  const [reclamos, clientes, ubicaciones, jornadas, jornadasActivas] = await Promise.all([
-    reclamosRepository.listar(),
-    clientesRepository.listar(),
+  const tecnicoIds = tecnicos.map((tecnico) => tecnico.id);
+  const [reclamos, finalizadosPorTecnico, horasPorTecnico, ubicaciones, jornadasActivas] = await Promise.all([
+    reclamosRepository.listar({ tecnicoId: { $in: tecnicoIds }, estado: { $ne: 'Finalizado' } }),
+    reclamosRepository.contarPorTecnico({ tecnicoId: { $in: tecnicoIds }, estado: 'Finalizado' }),
+    jornadasRepository.horasPorTecnico(tecnicoIds),
     ubicacionesRepository.listar(),
-    jornadasRepository.listar({ fin: { $ne: null } }),
-    jornadasRepository.listar({ activa: true }),
+    jornadasRepository.listar({ tecnicoId: { $in: tecnicoIds }, activa: true }),
   ]);
+  const clientes = await clientesRepository.listar({ id: { $in: [...new Set(reclamos.map((reclamo) => reclamo.clienteId))] } });
   const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
   const fechaDeOrden = (reclamo) => new Date(reclamo.fechaProgramada || reclamo.creadoEn || 0);
   const jornadaActivaDe = (tecnicoId) => {
@@ -307,7 +356,7 @@ async function tecnicosConDetalle(tecnicos) {
   return tecnicos.map((tecnico) => {
     const propios = reclamos.filter((reclamo) => reclamo.tecnicoId === tecnico.id);
     const reclamoEnCurso = propios.find((reclamo) => reclamo.estado === 'En progreso') || null;
-    const reclamoAsignado = propios.find((reclamo) => !['Finalizado', 'En progreso'].includes(reclamo.estado)) || null;
+    const reclamoAsignado = propios.find((reclamo) => reclamo.estado !== 'En progreso') || null;
     const cliente = clientesPorId.get((reclamoEnCurso || reclamoAsignado)?.clienteId);
     return {
       ...tecnico,
@@ -321,7 +370,7 @@ async function tecnicosConDetalle(tecnicos) {
       ubicacion: jornadaActivaDe(tecnico.id)
         ? ubicaciones.find((ubicacion) => ubicacion.tecnicoId === tecnico.id) || null
         : null,
-      // Domicilios de sus servicios en orden, para dibujar el recorrido en el mapa.
+      // Domicilios de sus servicios pendientes en orden, para dibujar el recorrido en el mapa.
       recorrido: propios
         .filter((reclamo) => reclamo.estado !== 'Bloqueado')
         .sort((primero, segundo) => fechaDeOrden(primero) - fechaDeOrden(segundo))
@@ -335,11 +384,9 @@ async function tecnicosConDetalle(tecnicos) {
           } : null;
         })
         .filter(Boolean),
-      trabajos: propios.filter((reclamo) => reclamo.estado === 'Finalizado').length,
-      horas: jornadas
-        .filter((jornada) => jornada.tecnicoId === tecnico.id)
-        .reduce((total, jornada) => total + horasDeJornada(jornada), 0)
-        .toFixed(1),
+      trabajos: finalizadosPorTecnico[tecnico.id] || 0,
+      // Incluye la jornada en curso (hasta ahora), igual que el desempeño del técnico.
+      horas: (horasPorTecnico[tecnico.id] || 0).toFixed(1),
     };
   });
 }
@@ -413,6 +460,12 @@ function validarPerfil(perfil, rolId) {
       }
     } else if (definicion.tipo === 'string' && typeof perfil[campo] !== 'string') {
       return `${campo} debe ser texto`;
+    } else if (definicion.tipo === 'string' && perfil[campo].length > LARGO_MAXIMO_TEXTO) {
+      return `${campo} admite hasta ${LARGO_MAXIMO_TEXTO} caracteres`;
+    }
+    if (campo === 'email' && !formatoEmail.test(perfil[campo])) return 'El correo no es válido';
+    if (campo === 'telefono' && !formatoTelefono.test(perfil[campo])) {
+      return 'El teléfono no es válido (solo números, espacios, guiones, + y paréntesis)';
     }
   }
   return null;
