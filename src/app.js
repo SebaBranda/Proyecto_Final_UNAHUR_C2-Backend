@@ -58,11 +58,10 @@ export function crearAplicacion() {
     const esDuplicado = error.code === 'DUPLICATE_USERNAME' || error.code === 11000;
     const estado = esJsonInvalido || esValidacionMongoose || esDuplicado ? 400 : 500;
     console.error(error);
-    const esUsuarioRepetido = error.code === 'DUPLICATE_USERNAME' || Boolean(error.keyPattern?.usuario);
     const mensaje = esJsonInvalido
       ? 'JSON inválido'
       : esDuplicado
-        ? (esUsuarioRepetido ? 'El nombre de usuario ya existe' : 'Ya existe un registro con esos datos')
+        ? 'El nombre de usuario ya existe'
         : estado === 400
           ? 'Datos inválidos'
           : 'Error interno del servidor';

@@ -1,10 +1,9 @@
 import { jornadasRepository } from '../repositories/jornadas.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
-import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { imagenesService } from './imagenes.service.js';
-import { vehiculosService } from './vehiculos.service.js';
 import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
+import { validarNivelCombustible } from '../utils/combustible.js';
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -14,10 +13,7 @@ const elegir = (body, campos) => Object.fromEntries(
     .filter((campo) => Object.prototype.hasOwnProperty.call(body || {}, campo))
     .map((campo) => [campo, body[campo]]),
 );
-// Fotos del vehículo y del tablero que se piden al iniciar y al finalizar la jornada.
-const IMAGENES_CONTROL_JORNADA = 4;
-const LARGO_MAXIMO_OBSERVACIONES = 1000;
-const esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);
+const IMAGENES_CIERRE_JORNADA = 4;
 
 export const jornadasService = {
   async listar(usuario, query = {}) {
@@ -49,10 +45,9 @@ export const jornadasService = {
   async resumen(usuario, { desde, hasta } = {}) {
     const rango = validarRangoFechas({ desde, hasta });
     if (rango.error) return resultado(400, { mensaje: rango.error });
-    // Incluye la jornada en curso: sus horas se cuentan hasta ahora (así "Hoy" no da 0 mientras trabaja).
     const [finalizados, jornadas] = await Promise.all([
       reclamosRepository.listar({ tecnicoId: aId(usuario.id), estado: 'Finalizado' }),
-      jornadasRepository.listar({ tecnicoId: aId(usuario.id) }),
+      jornadasRepository.listar({ tecnicoId: aId(usuario.id), fin: { $ne: null } }),
     ]);
     const fechaDeServicio = (reclamo) => new Date(reclamo.finalizadoEn || reclamo.fechaProgramada || reclamo.creadoEn);
     const jornadasDelPeriodo = jornadas.filter((jornada) => (
@@ -60,7 +55,7 @@ export const jornadasService = {
       && (!rango.hasta || new Date(jornada.inicio) <= rango.hasta)
     ));
     const horasTrabajadas = jornadasDelPeriodo.reduce((total, jornada) => (
-      total + Math.max(0, (jornada.fin ? new Date(jornada.fin) : new Date()) - new Date(jornada.inicio)) / 3600000
+      total + Math.max(0, new Date(jornada.fin) - new Date(jornada.inicio)) / 3600000
     ), 0);
     return resultado(200, {
       totalServicios: finalizados.length,
@@ -79,61 +74,15 @@ export const jornadasService = {
     if (!esGestion(usuario) && tecnicoId !== aId(usuario.id)) {
       return resultado(403, { mensaje: 'Solo puedes iniciar tu propia jornada' });
     }
-    if (esGestion(usuario)) {
-      const tecnico = tecnicoId ? await usuariosRepository.buscarPorId(tecnicoId, { rolId: 3 }) : null;
-      if (!tecnico) return resultado(400, { mensaje: 'El técnico indicado no existe' });
-      if (tecnico.activo === false) return resultado(400, { mensaje: 'El técnico indicado está dado de baja' });
-    }
-    if (typeof body?.observaciones === 'string' && body.observaciones.length > LARGO_MAXIMO_OBSERVACIONES) {
-      return resultado(400, { mensaje: `Las observaciones admiten hasta ${LARGO_MAXIMO_OBSERVACIONES} caracteres` });
-    }
     // Un técnico tiene como máximo una jornada activa.
     if ((await jornadasRepository.listar({ tecnicoId, activa: true })).length) {
       return resultado(409, { mensaje: 'Ya hay una jornada activa. Finalizala antes de iniciar otra.' });
-    }
-    // Con vehículo, la jornada empieza con el control del vehículo (kilometraje, litros, estado y
-    // 4 fotos), que también queda registrado en el vehículo. Los reclamos se comienzan sin control.
-    let controlInicial = elegir(body, ['observaciones']);
-    const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: tecnicoId });
-    if (vehiculo) {
-      const control = esObjeto(body?.controlInicial) ? body.controlInicial : {};
-      const kilometraje = Number(control.kilometraje);
-      const litros = Number(control.litros);
-      const kilometrajeActual = Number(vehiculo.kilometraje?.actual) || 0;
-      if (control.kilometraje == null || control.kilometraje === '' || !Number.isFinite(kilometraje)) {
-        return resultado(400, { mensaje: 'Completá el kilometraje del tablero para iniciar la jornada.' });
-      }
-      if (kilometraje < kilometrajeActual) {
-        return resultado(400, { mensaje: `El kilometraje no puede ser menor al actual del vehículo (${kilometrajeActual} km).` });
-      }
-      if (control.litros == null || control.litros === '' || !Number.isFinite(litros) || litros < 0) {
-        return resultado(400, { mensaje: 'Completá los litros de nafta.' });
-      }
-      const errorImagenes = await imagenesService.validarReferencias(control.imagenes, usuario, {
-        minimo: IMAGENES_CONTROL_JORNADA,
-        maximo: IMAGENES_CONTROL_JORNADA,
-      });
-      if (errorImagenes) {
-        return resultado(400, {
-          mensaje: errorImagenes.startsWith('Se requieren')
-            ? `Se requieren exactamente ${IMAGENES_CONTROL_JORNADA} imágenes del vehículo para iniciar la jornada.`
-            : errorImagenes,
-        });
-      }
-      const datosControl = {
-        kilometraje, litros, estado: control.estado || 'Activo', imagenes: control.imagenes,
-      };
-      const registro = await vehiculosService.control(vehiculo.id, datosControl, usuario);
-      if (registro.status !== 200) return registro;
-      controlInicial = {
-        ...controlInicial, ...datosControl, kilometrajeInicial: kilometraje, vehiculoId: vehiculo.id,
-      };
     }
     return resultado(201, await jornadasRepository.crear({
       tecnicoId,
       activa: true,
       inicio: new Date().toISOString(),
-      controlInicial,
+      controlInicial: elegir(body, ['kilometrajeInicial', 'observaciones']),
     }));
   },
 
@@ -144,9 +93,6 @@ export const jornadasService = {
       return resultado(403, { mensaje: 'Solo puedes finalizar tu propia jornada' });
     }
     if (!jornada.activa) return resultado(400, { mensaje: 'La jornada ya está finalizada' });
-    if (typeof body?.observaciones === 'string' && body.observaciones.length > LARGO_MAXIMO_OBSERVACIONES) {
-      return resultado(400, { mensaje: `Las observaciones admiten hasta ${LARGO_MAXIMO_OBSERVACIONES} caracteres` });
-    }
     // El control final (kilometraje, litros, estado y 4 fotos) es del vehículo: si el técnico no
     // tiene uno asignado, la jornada se cierra sin control (solo observaciones, opcionales).
     const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: jornada.tecnicoId });
@@ -156,43 +102,24 @@ export const jornadasService = {
         ...elegir(body, ['observaciones']),
       }));
     }
-    // Con vehículo, el control final (kilometraje, litros, estado y 4 fotos) se registra también en
-    // el vehículo, en el mismo pedido (igual que al iniciar la jornada).
-    const kilometraje = Number(body?.kilometraje);
-    const litros = Number(body?.litros);
-    const kilometrajeActual = Number(vehiculo.kilometraje?.actual) || 0;
-    if (body?.kilometraje == null || body.kilometraje === '' || !Number.isFinite(kilometraje)) {
-      return resultado(400, { mensaje: 'Completá el kilometraje del tablero para finalizar la jornada.' });
-    }
-    if (kilometraje < kilometrajeActual) {
-      return resultado(400, { mensaje: `El kilometraje no puede ser menor al actual del vehículo (${kilometrajeActual} km).` });
-    }
-    if (body.litros == null || body.litros === '' || !Number.isFinite(litros) || litros < 0) {
-      return resultado(400, { mensaje: 'Completá los litros de nafta.' });
-    }
-    const errorImagenes = await imagenesService.validarReferencias(body.imagenes, usuario, {
-      minimo: IMAGENES_CONTROL_JORNADA,
-      maximo: IMAGENES_CONTROL_JORNADA,
+    const errorImagenes = await imagenesService.validarReferencias(body?.imagenes, usuario, {
+      minimo: IMAGENES_CIERRE_JORNADA,
+      maximo: IMAGENES_CIERRE_JORNADA,
     });
     if (errorImagenes) {
       return resultado(400, {
         mensaje: errorImagenes.startsWith('Se requieren')
-          ? `Se requieren exactamente ${IMAGENES_CONTROL_JORNADA} imágenes del vehículo para finalizar la jornada.`
+          ? `Se requieren exactamente ${IMAGENES_CIERRE_JORNADA} imágenes del vehículo para finalizar la jornada.`
           : errorImagenes,
       });
     }
-    const datosControl = {
-      kilometraje,
-      litros,
-      estado: body.estado || 'Activo',
-      imagenes: body.imagenes,
-      ...elegir(body, ['observaciones']),
-    };
-    const registro = await vehiculosService.control(vehiculo.id, datosControl, usuario);
-    if (registro.status !== 200) return registro;
-    return resultado(200, await cerrarJornada(jornada, {
-      ...datosControl, kilometrajeFinal: kilometraje, vehiculoId: vehiculo.id,
-    }));
+    if (!validarNivelCombustible(body?.nivelCombustible)) {
+      return resultado(400, { mensaje: 'El nivel de combustible debe ser 1/4, 1/2, 3/4 o 1.' });
+    }
+    return resultado(200, await cerrarJornada(
+      jornada,
+      elegir(body, ['kilometrajeFinal', 'kilometraje', 'nivelCombustible', 'estado', 'observaciones', 'imagenes']),
+    ));
   },
 
   async eliminar(jornadaId, usuario) {

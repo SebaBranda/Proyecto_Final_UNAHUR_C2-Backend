@@ -14,21 +14,6 @@ class JornadasRepository {
     return { datos, total };
   }
 
-  // { tecnicoId: horas } de los técnicos indicados (lo suma Mongo). La jornada en curso cuenta
-  // hasta ahora.
-  async horasPorTecnico(tecnicoIds) {
-    const grupos = await Jornada.aggregate([
-      { $match: { tecnicoId: { $in: tecnicoIds }, inicio: { $ne: null } } },
-      {
-        $group: {
-          _id: '$tecnicoId',
-          milisegundos: { $sum: { $max: [0, { $subtract: [{ $ifNull: ['$fin', '$$NOW'] }, '$inicio'] }] } },
-        },
-      },
-    ]);
-    return Object.fromEntries(grupos.map((grupo) => [grupo._id, grupo.milisegundos / 3600000]));
-  }
-
   async buscarPorId(id) {
     return Jornada.findOne({ id }).select('-_id -__v').lean();
   }

@@ -30,8 +30,7 @@ export async function autenticar(req, res, next) {
   // Una sola sesión por usuario: el token tiene que ser de la sesión vigente.
   // Si el usuario ingresó desde otro lugar (web o celular), los tokens viejos dejan de servir.
   const usuario = await usuariosRepository.sesionVigente(id);
-  // Sin sesión abierta: se cerró con "Salir" o porque le cambiaron el rol o la contraseña.
-  if (!usuario || !usuario.activo || !usuario.sesionId) {
+  if (!usuario || !usuario.activo) {
     return res.status(401).json({ mensaje: 'La sesión ya no es válida. Ingresá de nuevo.' });
   }
   if (!payload.sid || payload.sid !== usuario.sesionId) {

@@ -34,14 +34,10 @@ function crearControlador(service) {
       return responder(res, await service.crear(req.body));
     },
     async actualizar(req, res) {
-      return responder(res, await service.actualizar(req.params.id, req.body, {
-        usuarioAutenticado: req.usuarioAutenticado,
-      }));
+      return responder(res, await service.actualizar(req.params.id, req.body));
     },
     async eliminar(req, res) {
-      return responder(res, await service.eliminar(req.params.id, {
-        usuarioAutenticado: req.usuarioAutenticado,
-      }));
+      return responder(res, await service.eliminar(req.params.id));
     },
   };
 }

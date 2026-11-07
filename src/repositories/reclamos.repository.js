@@ -80,12 +80,6 @@ class ReclamosRepository {
     return Object.fromEntries(grupos.map((grupo) => [grupo._id, grupo.total]));
   }
 
-  // { tecnicoId: cantidad } para los reclamos que cumplen el filtro (lo cuenta Mongo).
-  async contarPorTecnico(filtro = {}) {
-    const grupos = await Reclamo.aggregate([{ $match: filtro }, { $group: { _id: '$tecnicoId', total: { $sum: 1 } } }]);
-    return Object.fromEntries(grupos.map((grupo) => [grupo._id, grupo.total]));
-  }
-
   async buscarPorId(id) {
     return Reclamo.findOne({ id }).select('-_id -__v').lean();
   }

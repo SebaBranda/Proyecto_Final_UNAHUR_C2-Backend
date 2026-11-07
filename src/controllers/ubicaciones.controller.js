@@ -14,4 +14,14 @@ export const ubicacionesTecnicos = {
     );
     return res.status(resultado.status).json(resultado.body);
   },
+
+  async registrarRecorrido(req, res) {
+    const resultado = await ubicacionesService.registrarRecorrido(req.body, req.usuarioAutenticado);
+    return res.status(resultado.status).json(resultado.body);
+  },
+
+  async listarRecorrido(req, res) {
+    const resultado = await ubicacionesService.listarRecorrido(req.query, req.usuarioAutenticado);
+    return res.status(resultado.status).json(resultado.body);
+  },
 };

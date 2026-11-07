@@ -1,5 +1,7 @@
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { ubicacionesRepository } from '../repositories/ubicaciones.repository.js';
+import { recorridosRepository } from '../repositories/recorridos.repository.js';
+import { jornadasRepository } from '../repositories/jornadas.repository.js';
 
 export const ubicacionesService = {
   async listar(usuarioAutenticado) {
@@ -40,6 +42,52 @@ export const ubicacionesService = {
 
     const ubicacion = await ubicacionesRepository.actualizar(tecnicoId, { latitud, longitud });
     return respuesta(200, ubicacion);
+  },
+
+  async registrarRecorrido(cuerpo, usuarioAutenticado) {
+    if (usuarioAutenticado.rolId !== 3) return respuesta(403, { mensaje: 'Solo los técnicos pueden registrar recorridos' });
+    if (!esObjeto(cuerpo) || !Array.isArray(cuerpo.puntos) || !cuerpo.puntos.length) {
+      return respuesta(400, { mensaje: 'Se requiere una lista de puntos de recorrido' });
+    }
+    const tecnicoId = convertirId(usuarioAutenticado.id);
+    const jornadaId = convertirId(cuerpo.jornadaId);
+    const jornada = jornadaId ? await jornadasRepository.buscarPorId(jornadaId) : null;
+    if (!jornada || jornada.tecnicoId !== tecnicoId) {
+      return respuesta(400, { mensaje: 'La jornada activa no es válida' });
+    }
+    const puntos = cuerpo.puntos.map((punto) => ({
+      tecnicoId,
+      jornadaId,
+      latitud: Number(punto.latitud),
+      longitud: Number(punto.longitud),
+      registradoEn: new Date(punto.registradoEn),
+      evento: punto.evento || 'intervalo',
+    }));
+    if (puntos.some((punto) => !Number.isFinite(punto.latitud) || punto.latitud < -90
+      || punto.latitud > 90 || !Number.isFinite(punto.longitud) || punto.longitud < -180
+      || punto.longitud > 180 || Number.isNaN(punto.registradoEn.getTime()))) {
+      return respuesta(400, { mensaje: 'El recorrido contiene puntos inválidos' });
+    }
+    await recorridosRepository.insertarMuchos(puntos);
+    const ultimo = puntos[puntos.length - 1];
+    await ubicacionesRepository.actualizar(tecnicoId, ultimo);
+    return respuesta(201, { recibidos: puntos.length });
+  },
+
+  async listarRecorrido(query, usuarioAutenticado) {
+    if (![1, 2].includes(usuarioAutenticado.rolId)) {
+      return respuesta(403, { mensaje: 'No tienes permisos para consultar recorridos' });
+    }
+    const tecnicoId = convertirId(query.tecnicoId);
+    const desde = new Date(query.desde);
+    const hasta = new Date(query.hasta);
+    if (!tecnicoId || Number.isNaN(desde.getTime()) || Number.isNaN(hasta.getTime())) {
+      return respuesta(400, { mensaje: 'Se requieren técnico, fecha desde y fecha hasta válidos' });
+    }
+    return respuesta(200, {
+      tecnicoId,
+      puntos: await recorridosRepository.listar({ tecnicoId, desde, hasta }),
+    });
   },
 };
 

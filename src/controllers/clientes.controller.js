@@ -13,6 +13,13 @@ export const clientesCrud = {
   async actualizar(req, res) {
     return responder(res, await clientesService.actualizar(req.params.id, req.body));
   },
+  async actualizarConexion(req, res) {
+    return responder(res, await clientesService.actualizarConexion(
+      req.params.id,
+      req.body,
+      req.usuarioAutenticado,
+    ));
+  },
   async eliminar(req, res) {
     return responder(res, await clientesService.eliminar(req.params.id));
   },

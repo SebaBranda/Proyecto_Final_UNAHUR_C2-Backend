@@ -15,11 +15,11 @@ export const fuenteControles = {
     { campo: 'modelo', etiqueta: 'Modelo', tipo: 'texto' },
     { campo: 'tecnico', etiqueta: 'Cargado por', tipo: 'lista' },
     { campo: 'kilometraje', etiqueta: 'Kilometraje', tipo: 'numero' },
-    { campo: 'litros', etiqueta: 'Litros', tipo: 'numero' },
+    { campo: 'nivelCombustible', etiqueta: 'Combustible', tipo: 'lista' },
     { campo: 'estado', etiqueta: 'Estado del vehículo', tipo: 'lista' },
     { campo: 'observaciones', etiqueta: 'Observaciones', tipo: 'texto' },
   ],
-  columnasPorDefecto: ['fecha', 'patente', 'tecnico', 'kilometraje', 'litros', 'estado', 'observaciones'],
+  columnasPorDefecto: ['fecha', 'patente', 'tecnico', 'kilometraje', 'nivelCombustible', 'estado', 'observaciones'],
   ordenPorDefecto: { campo: 'fecha', sentido: 'desc' },
   columnaPeriodo: 'fecha',
   filtrosRapidos: ['patente', 'tecnico'],
@@ -34,7 +34,7 @@ export const fuenteControles = {
       modelo: vehiculo.modelo || '',
       tecnico: nombres.get(control.registradoPor) || '',
       kilometraje: numeroONulo(control.kilometraje ?? control.km),
-      litros: numeroONulo(control.litros),
+      nivelCombustible: control.nivelCombustible || control.litros || '',
       estado: control.estado || '',
       observaciones: control.observaciones || '',
     })));
@@ -44,7 +44,7 @@ export const fuenteControles = {
     return [
       { etiqueta: 'Controles', valor: filas.length },
       { etiqueta: 'Vehículos controlados', valor: new Set(filas.map((fila) => fila.patente)).size },
-      { etiqueta: 'Litros cargados', valor: filas.reduce((suma, fila) => suma + (fila.litros || 0), 0), tipo: 'numero' },
+      { etiqueta: 'Controles con combustible informado', valor: filas.filter((fila) => fila.nivelCombustible).length, tipo: 'numero' },
     ];
   },
 };

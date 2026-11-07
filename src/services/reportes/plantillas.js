@@ -185,7 +185,7 @@ export const PLANTILLAS = [
     descripcion: 'Kilometraje, combustible y estado cargados en cada control.',
     definicion: {
       fuente: 'controles',
-      columnas: ['fecha', 'patente', 'tecnico', 'kilometraje', 'litros', 'estado', 'observaciones'],
+      columnas: ['fecha', 'patente', 'tecnico', 'kilometraje', 'nivelCombustible', 'estado', 'observaciones'],
       filtros: [{ campo: 'fecha', operador: 'esteMes' }],
       orden: { campo: 'fecha', sentido: 'desc' },
     },

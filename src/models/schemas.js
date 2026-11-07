@@ -41,10 +41,14 @@ export const TecnicoProfile = mongoose.model('TecnicoProfile', new Schema({
 export const Cliente = mongoose.model('Cliente', new Schema({
   id: { type: Number, required: true, unique: true, index: true },
   nombre: { type: String, required: true },
+  numeroCliente: { type: String, trim: true, index: true },
+  pelo: String,
+  caja: String,
   documento: String,
   telefono: String,
   email: String,
   direccion: String,
+  ubicacion: String,
   activo: { type: Boolean, default: true },
 }, opcionesBase));
 
@@ -54,6 +58,15 @@ export const UbicacionTecnico = mongoose.model('UbicacionTecnico', new Schema({
   longitud: { type: Number, required: true, min: -180, max: 180 },
   actualizadoEn: { type: Date, required: true, default: Date.now },
 }, { versionKey: false }));
+
+export const PuntoRecorridoTecnico = mongoose.model('PuntoRecorridoTecnico', new Schema({
+  tecnicoId: { type: Number, ref: 'Usuario', required: true, index: true },
+  jornadaId: { type: Number, ref: 'Jornada', required: true, index: true },
+  latitud: { type: Number, required: true, min: -90, max: 90 },
+  longitud: { type: Number, required: true, min: -180, max: 180 },
+  registradoEn: { type: Date, required: true, index: true },
+  evento: { type: String, enum: ['intervalo', 'inicio_jornada', 'cambio_estado', 'fin_jornada'], default: 'intervalo' },
+}, { versionKey: false, collection: 'recorridos_tecnicos' }));
 
 export const Rol = mongoose.model('Rol', new Schema({
   _id: { type: Number, required: true },
