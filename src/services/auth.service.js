@@ -10,6 +10,36 @@ import { serializarUsuario } from './usuarios.service.js';
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
 const TOKEN_ISSUER = 'galacticapp-api';
 
+// Límite de intentos: después de 5 contraseñas incorrectas seguidas para un mismo usuario, ese
+// usuario no puede ingresar durante 5 minutos (frena a quien prueba contraseñas al azar).
+// Se guarda en memoria: si el servidor se reinicia, los contadores vuelven a cero.
+const MAXIMO_INTENTOS = 5;
+const BLOQUEO_MS = 5 * 60 * 1000;
+const intentosFallidos = new Map(); // usuario -> { cantidad, bloqueadoHasta, ultimo }
+
+function minutosDeBloqueo(clave) {
+  const registro = intentosFallidos.get(clave);
+  const restante = (registro?.bloqueadoHasta || 0) - Date.now();
+  return restante > 0 ? Math.ceil(restante / 60000) : 0;
+}
+
+function anotarIntentoFallido(clave) {
+  const ahora = Date.now();
+  // Se olvidan los registros viejos para que el mapa no crezca sin límite.
+  if (intentosFallidos.size > 1000) {
+    for (const [otra, registro] of intentosFallidos) {
+      if (ahora - registro.ultimo > BLOQUEO_MS) intentosFallidos.delete(otra);
+    }
+  }
+  const registro = intentosFallidos.get(clave);
+  const cantidad = (registro && ahora - registro.ultimo <= BLOQUEO_MS ? registro.cantidad : 0) + 1;
+  intentosFallidos.set(clave, {
+    cantidad: cantidad >= MAXIMO_INTENTOS ? 0 : cantidad,
+    bloqueadoHasta: cantidad >= MAXIMO_INTENTOS ? ahora + BLOQUEO_MS : 0,
+    ultimo: ahora,
+  });
+}
+
 // plataforma: 'mobile' cuando ingresa la app del técnico. El rol se valida antes de abrir la
 // sesión, para que un administrador que prueba la app no cierre su sesión de la web.
 export async function iniciarSesion({ usuario, contrasena, plataforma } = {}) {
@@ -17,11 +47,21 @@ export async function iniciarSesion({ usuario, contrasena, plataforma } = {}) {
     return respuesta(400, { mensaje: 'Se requieren usuario y contraseña' });
   }
 
+  const clave = usuario.trim().toLowerCase();
+  const minutos = minutosDeBloqueo(clave);
+  if (minutos) {
+    return respuesta(429, {
+      mensaje: `Demasiados intentos fallidos. Probá de nuevo en ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}.`,
+    });
+  }
+
   const registro = await usuariosRepository.buscarCredencialesPorUsuario(usuario.trim());
   if (!registro || !registro.activo
     || !await verifyPassword(contrasena, registro.passwordHash)) {
+    anotarIntentoFallido(clave);
     return respuesta(401, { mensaje: 'Usuario o contraseña incorrectos' });
   }
+  intentosFallidos.delete(clave);
   const rol = buscarRol(registro.rolId);
   if (!rol) {
     return respuesta(403, { mensaje: 'El usuario no tiene un rol válido' });

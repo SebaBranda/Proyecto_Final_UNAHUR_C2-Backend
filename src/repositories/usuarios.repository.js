@@ -13,12 +13,21 @@ const modelosPerfil = {
 };
 
 class UsuariosRepository {
+  // Los listados no traen el hash de la contraseña (solo lo usan el login y la edición).
   async listar({ rolId, usuario } = {}) {
     const filtro = {};
     if (rolId) filtro.rolId = rolId;
     if (usuario) filtro.usuario = usuario;
-    const registros = await Usuario.find(filtro).select('+passwordHash +nombre').lean();
-    return Promise.all(registros.map((registro) => this.combinarPerfil(registro)));
+    const registros = await Usuario.find(filtro).select('+nombre').lean();
+    return this.combinarPerfiles(registros);
+  }
+
+  // Solo los usuarios indicados (por ejemplo, los técnicos de una página de reclamos).
+  async listarPorIds(ids, { rolId } = {}) {
+    if (!ids.length) return [];
+    const filtro = { id: { $in: ids } };
+    if (rolId) filtro.rolId = rolId;
+    return this.combinarPerfiles(await Usuario.find(filtro).select('+nombre').lean());
   }
 
   // extra: condiciones adicionales de Mongo (búsqueda, estado...). orden: por defecto, por id.
@@ -32,14 +41,24 @@ class UsuariosRepository {
         .sort(orden)
         .skip(salto)
         .limit(limite)
-        .select('+passwordHash +nombre')
+        .select('+nombre')
         .lean(),
       Usuario.countDocuments(filtro),
     ]);
-    return {
-      datos: await Promise.all(registros.map((registro) => this.combinarPerfil(registro))),
-      total,
-    };
+    return { datos: await this.combinarPerfiles(registros), total };
+  }
+
+  // Agrega su perfil a cada usuario con una consulta por rol (no una por usuario).
+  async combinarPerfiles(registros) {
+    const perfilesPorRol = await Promise.all(Object.entries(modelosPerfil).map(async ([rolId, ModeloPerfil]) => {
+      const ids = registros.filter((registro) => registro.rolId === Number(rolId)).map((registro) => registro.id);
+      const perfiles = ids.length
+        ? await ModeloPerfil.find({ usuarioId: { $in: ids } }).select('-_id -__v').lean()
+        : [];
+      return perfiles;
+    }));
+    const perfilPorUsuario = new Map(perfilesPorRol.flat().map(({ usuarioId, ...perfil }) => [usuarioId, perfil]));
+    return registros.map((registro) => ({ ...registro, perfil: perfilPorUsuario.get(registro.id) ?? {} }));
   }
 
   async contar(filtro = {}) {
@@ -108,7 +127,7 @@ class UsuariosRepository {
   async actualizar(id, cambios, { rolId } = {}) {
     const filtro = { id };
     if (rolId) filtro.rolId = rolId;
-    const actual = await Usuario.findOne(filtro).select('+passwordHash +nombre').lean();
+    const actual = await Usuario.findOne(filtro).select('+passwordHash +nombre +sesionId').lean();
     if (!actual) return null;
 
     const actualizado = {
@@ -117,6 +136,11 @@ class UsuariosRepository {
       id,
     };
     if (rolId) actualizado.rolId = rolId;
+    // La sesión abierta sigue valiendo al editar el usuario. Si cambia el rol o la contraseña,
+    // se cierra y tiene que volver a ingresar.
+    if (actualizado.rolId !== actual.rolId || actualizado.passwordHash !== actual.passwordHash) {
+      actualizado.sesionId = null;
+    }
     const perfil = extraerPerfil(cambios, actualizado.rolId);
 
     await Usuario.replaceOne({ id }, actualizado);

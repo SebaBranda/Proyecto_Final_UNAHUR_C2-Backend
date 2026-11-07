@@ -131,6 +131,14 @@
     {
       "key": "usuarioBloqueo",
       "value": ""
+    },
+    {
+      "key": "clienteNumeroId",
+      "value": ""
+    },
+    {
+      "key": "ahora",
+      "value": ""
     }
   ],
   "item": [
@@ -1420,6 +1428,127 @@
           }
         },
         {
+          "name": "POST CREAR CLIENTE CON NUMERO DE CLIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cliente creado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('clienteNumeroId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "description": "El número de cliente se guarda en mayúsculas; también se guardan pelo, caja y ubicación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente Con Numero\",\n  \"numeroCliente\": \"20f536\",\n  \"pelo\": \"P-12\",\n  \"caja\": \"Caja 4\",\n  \"ubicacion\": \"https://maps.google.com/?q=-34.65,-58.62\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET CLIENTE CON NUMERO DE CLIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Guarda el número en mayúsculas, pelo, caja y ubicación', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const cliente = pm.response.json();",
+                  "  pm.expect(cliente.numeroCliente).to.eql('20F536');",
+                  "  pm.expect(cliente.pelo).to.eql('P-12');",
+                  "  pm.expect(cliente.caja).to.eql('Caja 4');",
+                  "  pm.expect(cliente.ubicacion).to.include('maps');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteNumeroId}}"
+          }
+        },
+        {
+          "name": "POST CREAR CLIENTE CON NUMERO INVALIDO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El número de cliente solo puede contener letras, números, puntos, barras o guiones.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Numero Malo\",\n  \"numeroCliente\": \"20 F#\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DEL DAR DE BAJA AL CLIENTE CON NUMERO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Cliente dado de baja correctamente\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteNumeroId}}"
+          }
+        },
+        {
           "name": "POST CREAR CLIENTE SIN NOMBRE",
           "event": [
             {
@@ -2317,7 +2446,7 @@
             "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1510,\n  \"estado\": \"Bueno\",\n  \"observaciones\": \"Sin novedades\"\n}",
+              "raw": "{\n  \"kilometraje\": 1510,\n  \"nivelCombustible\": \"1\",\n  \"estado\": \"Bueno\",\n  \"observaciones\": \"Sin novedades\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2363,7 +2492,7 @@
             "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 100,\n  \"litros\": 10\n}",
+              "raw": "{\n  \"kilometraje\": 100,\n  \"nivelCombustible\": \"1/2\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2383,7 +2512,7 @@
           }
         },
         {
-          "name": "PATCH CONTROL CON LITROS NEGATIVOS (DEBE RECHAZAR)",
+          "name": "PATCH CONTROL SIN NIVEL DE COMBUSTIBLE VALIDO (DEBE RECHAZAR)",
           "event": [
             {
               "listen": "test",
@@ -2392,7 +2521,7 @@
                 "exec": [
                   "pm.test('Responde 400 con mensaje claro', function () {",
                   "  pm.response.to.have.status(400);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Los litros deben ser un número mayor o igual a 0.\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El nivel de combustible debe ser 1/4, 1/2, 3/4 o 1.\");",
                   "});"
                 ]
               }
@@ -2409,7 +2538,7 @@
             "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}/control",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1510,\n  \"litros\": -3\n}",
+              "raw": "{\n  \"kilometraje\": 1510,\n  \"nivelCombustible\": \"5/4\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3113,7 +3242,7 @@
               }
             ],
             "url": "{{baseUrl}}/api/jornadas",
-            "description": "Con vehículo asignado, la jornada empieza con el control del vehículo: kilometraje, litros, estado y 4 fotos.",
+            "description": "Con vehículo asignado, la jornada empieza con el control del vehículo: kilometraje, nivel de combustible, estado y 4 fotos.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"kilometrajeInicial\": 1510\n}",
@@ -3162,7 +3291,7 @@
             "url": "{{baseUrl}}/api/jornadas",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 100,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 100,\n    \"nivelCombustible\": \"3/4\",\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3208,7 +3337,7 @@
             "url": "{{baseUrl}}/api/jornadas",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"nivelCombustible\": \"3/4\",\n    \"estado\": \"Activo\",\n    \"imagenes\": []\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3286,7 +3415,7 @@
                   "  const jornada = pm.response.json();",
                   "  pm.expect(jornada.activa).to.eql(true);",
                   "  pm.expect(jornada.controlInicial.kilometrajeInicial).to.eql(1510);",
-                  "  pm.expect(jornada.controlInicial.litros).to.eql(30);",
+                  "  pm.expect(jornada.controlInicial.nivelCombustible).to.eql('3/4');",
                   "  pm.expect(jornada.controlInicial.imagenes).to.have.lengthOf(4);",
                   "  pm.expect(jornada.controlInicial.vehiculoId).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
                   "  pm.collectionVariables.set('jornadaId', jornada.id);",
@@ -3306,7 +3435,7 @@
             "url": "{{baseUrl}}/api/jornadas",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"litros\": 30,\n    \"estado\": \"Activo\",\n    \"imagenes\": {{imagenesInicioJornada}}\n  }\n}",
+              "raw": "{\n  \"controlInicial\": {\n    \"kilometraje\": 1510,\n    \"nivelCombustible\": \"3/4\",\n    \"estado\": \"Activo\",\n    \"imagenes\": {{imagenesInicioJornada}}\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3337,7 +3466,7 @@
                   "  pm.response.to.have.status(200);",
                   "  const vehiculo = pm.response.json().datos.find((item) => item.id === Number(pm.collectionVariables.get('vehiculoId')));",
                   "  pm.expect(vehiculo.kilometraje.actual).to.eql(1510);",
-                  "  pm.expect(vehiculo.ultimoControl.litros).to.eql(30);",
+                  "  pm.expect(vehiculo.ultimoControl.nivelCombustible).to.eql('3/4');",
                   "  pm.expect(vehiculo.ultimoControl.registradoPor).to.eql(Number(pm.collectionVariables.get('tecnicoId')));",
                   "});"
                 ]
@@ -4134,6 +4263,100 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/reclamos?desde=no-es-fecha"
+          }
+        },
+        {
+          "name": "PATCH DATOS DE CONEXION DEL CLIENTE (TECNICO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Pelo y caja actualizados', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().cliente.pelo).to.eql('P-7');",
+                  "  pm.expect(pm.response.json().cliente.caja).to.eql('Caja 12');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}/conexion",
+            "description": "Durante la jornada, el técnico puede completar o corregir el pelo y la caja de sus clientes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pelo\": \"P-7\",\n  \"caja\": \"Caja 12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH CONEXION CON OTROS CAMPOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Solo se pueden actualizar pelo y caja\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}/conexion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Otro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
           }
         },
         {
@@ -5033,7 +5256,7 @@
             "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornadaIncompletas}}\n}",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"nivelCombustible\": \"1/2\",\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornadaIncompletas}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5079,7 +5302,7 @@
             "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 100,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "raw": "{\n  \"kilometraje\": 100,\n  \"nivelCombustible\": \"1/2\",\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5099,7 +5322,7 @@
           }
         },
         {
-          "name": "PATCH FINALIZAR JORNADA CON LITROS NEGATIVOS (DEBE RECHAZAR)",
+          "name": "PATCH FINALIZAR JORNADA SIN NIVEL DE COMBUSTIBLE VALIDO (DEBE RECHAZAR)",
           "event": [
             {
               "listen": "test",
@@ -5108,7 +5331,7 @@
                 "exec": [
                   "pm.test('Responde 400 con mensaje claro', function () {",
                   "  pm.response.to.have.status(400);",
-                  "  pm.expect(pm.response.json().mensaje).to.eql(\"Completá los litros de nafta.\");",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El nivel de combustible debe ser 1/4, 1/2, 3/4 o 1.\");",
                   "});"
                 ]
               }
@@ -5125,7 +5348,7 @@
             "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": -3,\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"nivelCombustible\": \"medio\",\n  \"estado\": \"Activo\",\n  \"imagenes\": {{imagenesJornada}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5174,7 +5397,7 @@
             "url": "{{baseUrl}}/api/jornadas/{{jornadaId}}/finalizar",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kilometraje\": 1540,\n  \"litros\": 20,\n  \"estado\": \"Activo\",\n  \"observaciones\": \"Fin de jornada\",\n  \"imagenes\": {{imagenesJornada}}\n}",
+              "raw": "{\n  \"kilometraje\": 1540,\n  \"nivelCombustible\": \"1/2\",\n  \"estado\": \"Activo\",\n  \"observaciones\": \"Fin de jornada\",\n  \"imagenes\": {{imagenesJornada}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5604,6 +5827,171 @@
       "name": "8. Ubicaciones",
       "description": "El técnico guarda solo su propia ubicación GPS; admin y coordinador ven todas (mapa).",
       "item": [
+        {
+          "name": "POST REGISTRAR RECORRIDO (TECNICO)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('ahora', new Date().toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Recorrido registrado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().recibidos).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/recorrido",
+            "description": "La app guarda los puntos del recorrido en el celular y los manda juntos cuando hay WiFi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jornadaId\": {{jornadaId}},\n  \"puntos\": [\n    { \"latitud\": -34.65, \"longitud\": -58.62, \"registradoEn\": \"{{ahora}}\", \"evento\": \"inicio_jornada\" },\n    { \"latitud\": -34.66, \"longitud\": -58.63, \"registradoEn\": \"{{ahora}}\", \"evento\": \"intervalo\" }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST RECORRIDO CON PUNTOS INVALIDOS (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql(\"El recorrido contiene puntos inválidos\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/recorrido",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jornadaId\": {{jornadaId}},\n  \"puntos\": [{ \"latitud\": 200, \"longitud\": 0, \"registradoEn\": \"{{ahora}}\" }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECORRIDO DEL TECNICO (COORDINADOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Devuelve los puntos del recorrido', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().puntos.length).to.be.at.least(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/recorrido?tecnicoId={{tecnicoId}}&desde=2000-01-01&hasta=2099-12-31",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCoordinador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET RECORRIDO COMO TECNICO (DEBE RECHAZAR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Solo admin y coordinador ven los recorridos\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ubicaciones-tecnicos/recorrido?tecnicoId={{tecnicoId}}&desde=2000-01-01&hasta=2099-12-31",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
         {
           "name": "PATCH GUARDAR MI UBICACION (TECNICO)",
           "event": [
