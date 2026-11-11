@@ -1,15 +1,21 @@
 import { randomUUID } from 'node:crypto';
+import { almacenamientoConfigurado, borrarArchivo, subirArchivo, urlTemporal } from '../config/almacenamiento.js';
 import { imagenesRepository } from '../repositories/imagenes.repository.js';
 
 export const MAXIMO_IMAGENES_POR_PEDIDO = 6;
 const MAXIMO_BYTES = 600 * 1024;
 const ESPERA_ANTES_DE_BORRAR_MS = 24 * 60 * 60 * 1000;
 const formatoDataUrl = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+=*)$/;
+const EXTENSIONES = { jpeg: 'jpg', png: 'png', webp: 'webp' };
+const SIN_ALMACENAMIENTO = { mensaje: 'El almacenamiento de imágenes no está configurado.' };
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const resultado = (status, body) => ({ status, body });
 const bytesDeBase64 = (base64) => Math.floor((base64.length * 3) / 4) - (base64.match(/=+$/)?.[0].length ?? 0);
-const datosPublicos = ({ id, url, creadoEn }) => ({ id, url, creadoEn });
+
+// La foto está en el bucket: se devuelve un link temporal para verla.
+const datosPublicos = async ({ id, clave, creadoEn }) => ({ id, url: await urlTemporal(clave), creadoEn });
+const conDatosPublicos = (imagenes) => Promise.all(imagenes.filter((imagen) => imagen.clave).map(datosPublicos));
 
 function validarContenido(imagenes) {
   if (!Array.isArray(imagenes) || !imagenes.length) return 'Enviá al menos una imagen.';
@@ -30,12 +36,18 @@ export const imagenesService = {
   async subir(imagenes, usuario) {
     const error = validarContenido(imagenes);
     if (error) return resultado(400, { mensaje: error });
+    if (!almacenamientoConfigurado()) return resultado(503, SIN_ALMACENAMIENTO);
     const creadas = [];
-    for (const url of imagenes) {
+    for (const imagen of imagenes) {
+      const [, formato, base64] = imagen.match(formatoDataUrl);
+      const id = randomUUID();
+      const clave = `imagenes/${id}.${EXTENSIONES[formato]}`;
+      const contenido = Buffer.from(base64, 'base64');
+      await subirArchivo(clave, contenido, `image/${formato}`);
       creadas.push(await imagenesRepository.crear({
-        id: randomUUID(),
-        url,
-        tamano: bytesDeBase64(url.slice(url.indexOf(',') + 1)),
+        id,
+        clave,
+        tamano: contenido.length,
         subidoPor: Number(usuario.id),
         creadoEn: new Date().toISOString(),
       }));
@@ -50,18 +62,27 @@ export const imagenesService = {
       .filter((id) => typeof id === 'string' && id.trim())
       .slice(0, 50);
     if (!lista.length) return resultado(400, { mensaje: 'Indicá los ids de las imágenes (?ids=a,b,c).' });
-    return resultado(200, (await imagenesRepository.buscarPorIds(lista)).map(datosPublicos));
+    if (!almacenamientoConfigurado()) return resultado(503, SIN_ALMACENAMIENTO);
+    return resultado(200, await conDatosPublicos(await imagenesRepository.buscarPorIds(lista)));
   },
 
   async obtenerUna(id) {
-    const [imagen] = await imagenesRepository.buscarPorIds([id]);
-    return imagen ? resultado(200, datosPublicos(imagen)) : resultado(404, { mensaje: 'Imagen no encontrada' });
+    if (!almacenamientoConfigurado()) return resultado(503, SIN_ALMACENAMIENTO);
+    const [imagen] = await conDatosPublicos(await imagenesRepository.buscarPorIds([id]));
+    return imagen ? resultado(200, imagen) : resultado(404, { mensaje: 'Imagen no encontrada' });
   },
 
   // Borra las fotos que se subieron pero nunca se guardaron en un registro (por ejemplo, un
   // formulario que se canceló). Se esperan 24 horas por si alguien todavía está completándolo.
+  // Primero se borra el archivo del bucket y después su registro: si el bucket falla, el
+  // registro queda y se reintenta en la próxima limpieza.
   async limpiarSinUso() {
-    return imagenesRepository.eliminarSinUso(new Date(Date.now() - ESPERA_ANTES_DE_BORRAR_MS));
+    if (!almacenamientoConfigurado()) return 0;
+    const sinUso = await imagenesRepository.buscarSinUso(new Date(Date.now() - ESPERA_ANTES_DE_BORRAR_MS));
+    for (const { clave } of sinUso) {
+      if (clave) await borrarArchivo(clave);
+    }
+    return imagenesRepository.eliminarPorIds(sinUso.map(({ id }) => id));
   },
 
   // Valida los ids que alguien quiere guardar en el campo "imagenes" de un registro.

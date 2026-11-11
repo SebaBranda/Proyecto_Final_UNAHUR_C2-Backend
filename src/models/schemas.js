@@ -94,7 +94,8 @@ export const Reclamo = mongoose.model('Reclamo', new Schema({
 
 export const Imagen = mongoose.model('Imagen', new Schema({
   id: { type: String, required: true, unique: true, index: true },
-  url: { type: String, required: true },
+  // Ubicación del archivo dentro del bucket (ver config/almacenamiento.js).
+  clave: { type: String, required: true },
   tamano: { type: Number, required: true },
   subidoPor: { type: Number, ref: 'Usuario', required: true },
   creadoEn: { type: Date, default: Date.now },

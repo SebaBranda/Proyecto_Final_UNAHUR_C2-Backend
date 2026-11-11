@@ -70,7 +70,7 @@ Todas las rutas empiezan con `/api`. Los listados se paginan con `?pagina=&limit
 
 ### Imágenes
 
-- Se reciben como data URL en base64 (JPG, PNG o WebP; hasta 600 KB cada una y 6 por pedido) y se guardan en MongoDB con un id UUID.
+- Se reciben como data URL en base64 (JPG, PNG o WebP; hasta 600 KB cada una y 6 por pedido) y se suben a un bucket compatible con S3 (Oracle Object Storage). En MongoDB queda solo el id UUID y la ubicación del archivo; al pedirlas, la API devuelve un link temporal de una hora.
 - Los registros (reclamos, controles y jornadas) guardan solo los ids de sus imágenes.
 - Al arrancar el servidor y después cada 6 horas, se borran las imágenes subidas que ningún registro usa.
 
@@ -84,6 +84,7 @@ Partir de [.env.example](.env.example):
 | `MONGO_URI` | Cadena de conexión a MongoDB. **Obligatoria** |
 | `JWT_SECRET` | Secreto para firmar los tokens, de al menos 32 bytes. **Obligatoria** |
 | `CORS_ORIGIN` | Orígenes permitidos, separados por coma (por ejemplo `http://localhost:5173`) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Bucket donde se guardan las fotos. Sin estas variables no se pueden subir ni ver imágenes |
 | `SEED_DEMO_DATA` | `true` para cargar los datos demo al iniciar (solo agrega los que faltan) |
 | `HTTPS_ENABLED`, `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | HTTPS directo desde Node. En desarrollo, si faltan los certificados, se genera uno autofirmado |
 | `NODE_ENV` | `development` o `production` |

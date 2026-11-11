@@ -20,12 +20,16 @@ class ImagenesRepository {
     return ids.map((id) => porId.get(id)).filter(Boolean);
   }
 
-  // Borra las imágenes subidas antes de "fecha" que no usa ningún reclamo, jornada ni vehículo.
-  // Devuelve cuántas borró.
-  async eliminarSinUso(fecha) {
+  // Imágenes subidas antes de "fecha" que no usa ningún reclamo, jornada ni vehículo.
+  async buscarSinUso(fecha) {
     const listas = await Promise.all(REFERENCIAS.flatMap(([Modelo, campos]) => campos.map((campo) => Modelo.distinct(campo))));
     const enUso = [...new Set(listas.flat().filter((id) => typeof id === 'string'))];
-    const { deletedCount } = await Imagen.deleteMany({ creadoEn: { $lt: fecha }, id: { $nin: enUso } });
+    return Imagen.find({ creadoEn: { $lt: fecha }, id: { $nin: enUso } }).select('-_id id clave').lean();
+  }
+
+  // Devuelve cuántas borró.
+  async eliminarPorIds(ids) {
+    const { deletedCount } = await Imagen.deleteMany({ id: { $in: ids } });
     return deletedCount;
   }
 }
