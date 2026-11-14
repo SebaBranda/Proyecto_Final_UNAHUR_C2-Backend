@@ -1,4 +1,4 @@
-import { Reporte } from '../models/schemas.js';
+import { Contador, Reporte } from '../models/schemas.js';
 
 class ReportesRepository {
   // Los reportes propios y los que otros compartieron con el rol del usuario.
@@ -24,9 +24,15 @@ class ReportesRepository {
     return Reporte.findOneAndDelete({ id }).select('-_id').lean();
   }
 
+  // El contador se suma en un solo paso dentro de la base ($inc): dos altas al mismo tiempo
+  // nunca reciben el mismo id.
   async siguienteId() {
-    const ultimo = await Reporte.findOne().sort({ id: -1 }).select('id').lean();
-    return (ultimo?.id ?? 0) + 1;
+    const contador = await Contador.findOneAndUpdate(
+      { _id: 'reportes' },
+      { $inc: { valor: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    return contador.valor;
   }
 }
 

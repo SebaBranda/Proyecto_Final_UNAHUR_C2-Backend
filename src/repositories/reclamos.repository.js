@@ -1,4 +1,7 @@
-import { Reclamo } from '../models/schemas.js';
+import { Contador, Reclamo } from '../models/schemas.js';
+
+// La base rechazó la escritura porque el técnico ya tiene otro reclamo en progreso (índice único).
+export const esEnProgresoRepetido = (error) => error?.code === 11000 && Boolean(error.keyPattern?.tecnicoId);
 
 class ReclamosRepository {
   async listar(filtro = {}) {
@@ -107,9 +110,15 @@ class ReclamosRepository {
     return Reclamo.findOneAndDelete({ id }).select('-_id -__v').lean();
   }
 
+  // El contador se suma en un solo paso dentro de la base ($inc): dos altas al mismo tiempo
+  // nunca reciben el mismo id.
   async siguienteId() {
-    const ultimo = await Reclamo.findOne().sort({ id: -1 }).select('id').lean();
-    return (ultimo?.id ?? 0) + 1;
+    const contador = await Contador.findOneAndUpdate(
+      { _id: 'reclamos' },
+      { $inc: { valor: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    return contador.valor;
   }
 }
 

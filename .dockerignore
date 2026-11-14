@@ -1,0 +1,15 @@
+# Lo que no tiene que entrar en la imagen de Docker.
+node_modules
+.git
+.gitignore
+.dockerignore
+
+# Variables de entorno y certificados locales (pueden tener claves).
+.env
+.env.*
+certs
+
+# No hacen falta para correr la API.
+postman
+readme.md
+npm-debug.log

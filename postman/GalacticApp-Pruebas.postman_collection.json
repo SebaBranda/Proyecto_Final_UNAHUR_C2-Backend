@@ -4604,12 +4604,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Devuelve las 2 imágenes con su url', function () {",
+                  "pm.test('Devuelve las 2 imágenes con su link temporal al bucket', function () {",
                   "  pm.response.to.have.status(200);",
                   "  const imagenes = pm.response.json();",
                   "  pm.expect(imagenes).to.have.lengthOf(2);",
                   "  pm.expect(imagenes[0]).to.have.all.keys('id', 'url', 'creadoEn');",
-                  "  pm.expect(imagenes[0].url).to.match(/^data:image\\//);",
+                  "  pm.expect(imagenes[0].url).to.match(/^https?:\\/\\//);",
                   "});"
                 ]
               }
@@ -5550,6 +5550,110 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/jornadas?limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenTecnico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS DE UN TECNICO (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Trae solo las jornadas de ese técnico, con el vehículo y las fotos del control final', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  const jornadas = pm.response.json().datos;",
+                  "  pm.expect(jornadas.length).to.be.above(0);",
+                  "  pm.expect(jornadas.every((jornada) => jornada.tecnicoId === tecnicoId)).to.eql(true);",
+                  "  const jornada = jornadas.find((item) => item.id === Number(pm.collectionVariables.get('jornadaId')));",
+                  "  pm.expect(jornada.vehiculo).to.have.all.keys('id', 'patente', 'marca', 'modelo');",
+                  "  pm.expect(jornada.vehiculo.id).to.eql(Number(pm.collectionVariables.get('vehiculoId')));",
+                  "  pm.expect(jornada.controlFinal.imagenes).to.have.lengthOf(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?tecnicoId={{tecnicoId}}&limite=100",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS CON TECNICO INVALIDO (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400 con mensaje claro', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().mensaje).to.eql('tecnicoId inválido');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?tecnicoId=abc",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET JORNADAS DE OTRO TECNICO COMO TECNICO (SOLO VE LAS SUYAS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El filtro por técnico no le muestra jornadas ajenas', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const tecnicoId = Number(pm.collectionVariables.get('tecnicoId'));",
+                  "  pm.expect(pm.response.json().datos.every((jornada) => jornada.tecnicoId === tecnicoId)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/jornadas?tecnicoId=3&limite=100",
             "auth": {
               "type": "bearer",
               "bearer": [

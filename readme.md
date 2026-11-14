@@ -25,7 +25,7 @@ ruta → middleware (autenticar, autorizarRoles) → controlador → servicio �
 - **Repositorio:** es el único que hace consultas a MongoDB.
 
 ```
-index.js                 arranque: conexión a Mongo, datos demo, HTTP/HTTPS, limpieza de imágenes
+index.js                 arranque: conexión a Mongo, índices únicos, datos demo, contadores de ids, HTTP/HTTPS, limpieza de imágenes
 src/
   app.js                 Express: CORS, cabeceras de seguridad, JSON (máx. 5 MB), errores
   routes/                todas las rutas bajo /api y los roles que pueden usarlas
@@ -35,7 +35,7 @@ src/
     reportes/            fuentes de datos, filtros y plantillas del generador de reportes
   repositories/          acceso a datos por colección
   models/schemas.js      esquemas Mongoose
-  config/                conexión, roles, perfiles por rol y carga de datos demo
+  config/                conexión, índices únicos y contadores de ids, roles, perfiles por rol y carga de datos demo
   data/store.js          datos demo
   utils/                 paginación, búsqueda sin acentos, CSV, etc.
 postman/                 colección de pruebas de la API
@@ -61,7 +61,7 @@ Todas las rutas empiezan con `/api`. Los listados se paginan con `?pagina=&limit
 | Clientes | CRUD en `/clientes` y `PATCH /clientes/:id/conexion` |
 | Vehículos | CRUD en `/vehiculos`, más `/asignacion`, `/kilometraje` y `/control` |
 | Reclamos | `/reclamos`, `/resumen`, `/opciones`, `PATCH /:id/asignacion` y `PATCH /:id/estado` |
-| Jornadas | `/jornadas`, `/resumen` y `PATCH /:id/finalizar` (con el control del vehículo y 4 fotos) |
+| Jornadas | `/jornadas` (admin y coordinador pueden filtrar con `?tecnicoId=`), `/resumen` y `PATCH /:id/finalizar` (con el control del vehículo y 4 fotos) |
 | Imágenes | `POST /imagenes` (data URLs en base64) y `GET /imagenes` / `GET /imagenes/:id` |
 | Ubicaciones | `GET /ubicaciones-tecnicos`, `PATCH /ubicaciones-tecnicos/:tecnicoId` y `GET/POST /ubicaciones-tecnicos/recorrido` |
 | Reportes | `/reportes/fuentes`, `/vista-previa`, `/exportar` (CSV), `/plantillas` y CRUD de reportes guardados |
@@ -73,6 +73,19 @@ Todas las rutas empiezan con `/api`. Los listados se paginan con `?pagina=&limit
 - Se reciben como data URL en base64 (JPG, PNG o WebP; hasta 600 KB cada una y 6 por pedido) y se suben a un bucket compatible con S3 (Oracle Object Storage). En MongoDB queda solo el id UUID y la ubicación del archivo; al pedirlas, la API devuelve un link temporal de una hora.
 - Los registros (reclamos, controles y jornadas) guardan solo los ids de sus imágenes.
 - Al arrancar el servidor y después cada 6 horas, se borran las imágenes subidas que ningún registro usa.
+
+### Ids y reglas que cuida la base
+
+Estas reglas no dependen de "leer y después escribir": las resuelve MongoDB en un solo paso, así que se cumplen aunque lleguen dos pedidos al mismo tiempo (por ejemplo, un doble toque en un botón).
+
+- **Ids:** cada recurso (usuarios, clientes, vehículos, reclamos, jornadas y reportes) pide su próximo id a la colección `contadores`, que lo suma con `$inc`. Al arrancar, cada contador se pone al día con el id más alto que ya existe.
+- **Índices únicos** (definidos en [schemas.js](src/models/schemas.js)):
+  - una sola jornada activa por técnico;
+  - un solo reclamo en progreso por técnico;
+  - patente única, sin distinguir mayúsculas, espacios ni guiones.
+
+  Cuando la base rechaza un duplicado, la API responde con el mensaje de siempre (`409` en jornadas y reclamos, `400` en la patente). Si al arrancar ya hay datos que rompen una regla, ese índice no se crea y el servidor lo avisa en el registro.
+- **Inicio de jornada:** primero se crea la jornada y después se registra el control en el vehículo. Si el control falla, la jornada se borra.
 
 ## Variables de entorno
 
@@ -109,7 +122,7 @@ El `docker-compose.yml` del repositorio principal levanta MongoDB, este backend 
 docker compose up -d --build
 ```
 
-La imagen ([Dockerfile](Dockerfile)) usa `node:20-alpine` en dos etapas, corre con un usuario sin privilegios y usa `dumb-init` para recibir bien las señales de apagado.
+La imagen ([Dockerfile](Dockerfile)) usa `node:20-alpine` en dos etapas, corre con un usuario sin privilegios y usa `dumb-init` para recibir bien las señales de apagado. Las variables de entorno no se copian dentro de la imagen: las pasa `docker-compose.yml`, y el [.dockerignore](.dockerignore) deja afuera cualquier `.env`.
 
 ### Datos demo
 

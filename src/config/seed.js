@@ -62,6 +62,12 @@ async function sincronizarPerfiles(Modelo, perfiles) {
 
 async function sincronizarRegistros(Modelo, registros) {
   for (const registro of registros) {
-    await Modelo.updateOne({ id: registro.id }, { $setOnInsert: registro }, { upsert: true });
+    try {
+      await Modelo.updateOne({ id: registro.id }, { $setOnInsert: registro }, { upsert: true });
+    } catch (error) {
+      // El registro demo choca con un dato real (por ejemplo, el técnico ya tiene otra jornada
+      // activa): se saltea.
+      if (error.code !== 11000) throw error;
+    }
   }
 }

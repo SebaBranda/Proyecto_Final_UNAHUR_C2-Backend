@@ -1,4 +1,4 @@
-import { Cliente } from '../models/schemas.js';
+import { Contador, Cliente } from '../models/schemas.js';
 
 class ClientesRepository {
   async listar(filtro = {}) {
@@ -35,9 +35,15 @@ class ClientesRepository {
     return Cliente.findOneAndDelete({ id }).select('-_id -__v').lean();
   }
 
+  // El contador se suma en un solo paso dentro de la base ($inc): dos altas al mismo tiempo
+  // nunca reciben el mismo id.
   async siguienteId() {
-    const ultimo = await Cliente.findOne().sort({ id: -1 }).select('id').lean();
-    return (ultimo?.id ?? 0) + 1;
+    const contador = await Contador.findOneAndUpdate(
+      { _id: 'clientes' },
+      { $inc: { valor: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    return contador.valor;
   }
 }
 

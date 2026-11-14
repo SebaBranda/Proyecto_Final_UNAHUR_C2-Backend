@@ -1,4 +1,4 @@
-import { jornadasRepository } from '../repositories/jornadas.repository.js';
+import { esJornadaActivaRepetida, jornadasRepository } from '../repositories/jornadas.repository.js';
 import { reclamosRepository } from '../repositories/reclamos.repository.js';
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
@@ -18,11 +18,18 @@ const elegir = (body, campos) => Object.fromEntries(
 // Fotos del vehículo y del tablero que se piden al iniciar y al finalizar la jornada.
 const IMAGENES_CONTROL_JORNADA = 4;
 const LARGO_MAXIMO_OBSERVACIONES = 1000;
+const YA_HAY_JORNADA_ACTIVA = { mensaje: 'Ya hay una jornada activa. Finalizala antes de iniciar otra.' };
 const esObjeto = (valor) => valor !== null && typeof valor === 'object' && !Array.isArray(valor);
 
 export const jornadasService = {
+  // Filtros opcionales: desde y hasta (por fecha de inicio) y, para admin y coordinador, tecnicoId
+  // (las jornadas de la ficha de un técnico). El técnico siempre ve solo las suyas.
   async listar(usuario, query = {}) {
     const filtro = esGestion(usuario) ? {} : { tecnicoId: aId(usuario.id) };
+    if (esGestion(usuario) && query.tecnicoId != null && query.tecnicoId !== '') {
+      if (!aId(query.tecnicoId)) return resultado(400, { mensaje: 'tecnicoId inválido' });
+      filtro.tecnicoId = aId(query.tecnicoId);
+    }
     const rango = validarRangoFechas(query);
     if (rango.error) return resultado(400, { mensaje: rango.error });
     if (rango.desde || rango.hasta) filtro.inicio = {
@@ -37,8 +44,15 @@ export const jornadasService = {
       estado: 'Finalizado',
       jornadaId: { $in: jornadas.map((jornada) => jornada.id) },
     });
+    // Vehículo con el que se hizo cada jornada (el del control inicial o, si no, el del final).
+    const vehiculoIdDe = (jornada) => jornada.controlInicial?.vehiculoId ?? jornada.controlFinal?.vehiculoId ?? null;
+    const vehiculos = await vehiculosRepository.listar({
+      id: { $in: [...new Set(jornadas.map(vehiculoIdDe).filter(Boolean))] },
+    });
+    const vehiculosPorId = new Map(vehiculos.map(({ id, patente, marca, modelo }) => [id, { id, patente, marca, modelo }]));
     return resultado(200, respuestaPaginada(jornadas.map((jornada) => ({
       ...jornada,
+      vehiculo: vehiculosPorId.get(vehiculoIdDe(jornada)) || null,
       servicios: finalizados
         .filter((reclamo) => reclamo.jornadaId === jornada.id)
         .map(({ id, tipo, finalizadoEn, fechaProgramada, creadoEn }) => ({ id, tipo, finalizadoEn, fechaProgramada, creadoEn })),
@@ -89,13 +103,12 @@ export const jornadasService = {
       return resultado(400, { mensaje: `Las observaciones admiten hasta ${LARGO_MAXIMO_OBSERVACIONES} caracteres` });
     }
     // Un técnico tiene como máximo una jornada activa.
-    if ((await jornadasRepository.listar({ tecnicoId, activa: true })).length) {
-      return resultado(409, { mensaje: 'Ya hay una jornada activa. Finalizala antes de iniciar otra.' });
-    }
+    if (await jornadasRepository.buscarActiva(tecnicoId)) return resultado(409, YA_HAY_JORNADA_ACTIVA);
     // Con vehículo, la jornada empieza con el control del vehículo (kilometraje, nivel de
     // combustible, estado y 4 fotos), que también queda registrado en el vehículo. Los reclamos se
     // comienzan sin control.
     let controlInicial = elegir(body, ['observaciones']);
+    let datosControl = null;
     const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: tecnicoId });
     if (vehiculo) {
       const control = esObjeto(body?.controlInicial) ? body.controlInicial : {};
@@ -121,21 +134,39 @@ export const jornadasService = {
             : errorImagenes,
         });
       }
-      const datosControl = {
+      datosControl = {
         kilometraje, nivelCombustible: control.nivelCombustible, estado: control.estado || 'Activo', imagenes: control.imagenes,
       };
-      const registro = await vehiculosService.control(vehiculo.id, datosControl, usuario);
-      if (registro.status !== 200) return registro;
       controlInicial = {
         ...controlInicial, ...datosControl, kilometrajeInicial: kilometraje, vehiculoId: vehiculo.id,
       };
     }
-    return resultado(201, await jornadasRepository.crear({
-      tecnicoId,
-      activa: true,
-      inicio: new Date().toISOString(),
-      controlInicial,
-    }));
+    // Primero se crea la jornada: si llegan dos pedidos a la vez (doble toque en "Iniciar"), la
+    // base acepta uno solo y el otro no llega a escribir nada.
+    let jornada;
+    try {
+      jornada = await jornadasRepository.crear({
+        tecnicoId,
+        activa: true,
+        inicio: new Date().toISOString(),
+        controlInicial,
+      });
+    } catch (error) {
+      if (!esJornadaActivaRepetida(error)) throw error;
+      return resultado(409, YA_HAY_JORNADA_ACTIVA);
+    }
+    // Después se registra el control en el vehículo. Si no se puede, la jornada se deshace para
+    // que no quede iniciada sin su control.
+    if (vehiculo) {
+      let registro;
+      try {
+        registro = await vehiculosService.control(vehiculo.id, datosControl, usuario);
+      } finally {
+        if (registro?.status !== 200) await jornadasRepository.eliminar(jornada.id);
+      }
+      if (registro.status !== 200) return registro;
+    }
+    return resultado(201, jornada);
   },
 
   async finalizar(jornadaId, body, usuario) {

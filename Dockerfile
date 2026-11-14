@@ -21,10 +21,10 @@ RUN apk add --no-cache dumb-init
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-# Copiar el código de la aplicación
+# Copiar el código de la aplicación. Las variables de entorno no van dentro de la imagen:
+# las define docker-compose.yml al levantar el contenedor.
 COPY index.js .
 COPY src ./src
-COPY .env* ./
 
 # Crear usuario no-root por seguridad
 RUN addgroup -g 1001 -S nodejs

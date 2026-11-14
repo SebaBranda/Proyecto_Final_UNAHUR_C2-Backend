@@ -3,7 +3,7 @@ import https from 'node:https';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { crearAplicacion } from './src/app.js';
-import { conectarBaseDeDatos } from './src/config/database.js';
+import { conectarBaseDeDatos, crearIndicesUnicos, sincronizarContadores } from './src/config/database.js';
 import { sembrarDatosIniciales } from './src/config/seed.js';
 import { imagenesService } from './src/services/imagenes.service.js';
 import { generate } from 'selfsigned';
@@ -21,7 +21,10 @@ async function iniciarServidor() {
   } catch (error) {
     throw new Error(`No se pudo conectar con MongoDB: ${error.message}`, { cause: error });
   }
+  await crearIndicesUnicos();
   await sembrarDatosIniciales();
+  // Después de los datos demo, que se cargan con su propio id.
+  await sincronizarContadores();
   programarLimpiezaDeImagenes();
 
   if (process.env.HTTPS_ENABLED === 'true') {
@@ -63,11 +66,8 @@ async function cargarCertificados() {
   } catch (error) {
     if (process.env.NODE_ENV === 'production') throw error;
     const atributos = [{ name: 'commonName', value: 'localhost' }];
-    const certificado = await generate(atributos, {
-      keySize: 2048,
-      days: 365,
-      algorithm: 'sha256',
-    });
+    // Vale un año (el plazo por defecto de selfsigned).
+    const certificado = await generate(atributos, { keySize: 2048, algorithm: 'sha256' });
     await fs.mkdir(path.dirname(keyPath), { recursive: true });
     await Promise.all([
       fs.writeFile(keyPath, certificado.private, { mode: 0o600 }),

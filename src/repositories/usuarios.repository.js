@@ -1,5 +1,6 @@
 import {
   AdminProfile,
+  Contador,
   CoordinadorProfile,
   TecnicoProfile,
   Usuario,
@@ -187,9 +188,15 @@ class UsuariosRepository {
     )));
   }
 
+  // El contador se suma en un solo paso dentro de la base ($inc): dos altas al mismo tiempo
+  // nunca reciben el mismo id.
   async siguienteId() {
-    const ultimo = await Usuario.findOne().sort({ id: -1 }).select('id').lean();
-    return (ultimo?.id ?? 0) + 1;
+    const contador = await Contador.findOneAndUpdate(
+      { _id: 'usuarios' },
+      { $inc: { valor: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    return contador.valor;
   }
 }
 

@@ -1,4 +1,7 @@
-import { Vehiculo } from '../models/schemas.js';
+import { COMPARACION_PATENTE, Contador, Vehiculo } from '../models/schemas.js';
+
+// La base rechazó la escritura porque ya hay un vehículo con esa patente (índice único).
+export const esPatenteRepetida = (error) => error?.code === 11000 && Boolean(error.keyPattern?.patente);
 
 class VehiculosRepository {
   async listar(filtro = {}) {
@@ -18,6 +21,11 @@ class VehiculosRepository {
     return Vehiculo.findOne({ id }).select('-_id -__v').lean();
   }
 
+  // Compara como el índice único: sin distinguir mayúsculas, espacios ni guiones.
+  async existePatente(patente) {
+    return Boolean(await Vehiculo.exists({ patente }).collation(COMPARACION_PATENTE));
+  }
+
   async crear(datos) {
     const id = datos.id ?? await this.siguienteId();
     return (await Vehiculo.create({ ...datos, id })).toObject();
@@ -35,9 +43,15 @@ class VehiculosRepository {
     return Vehiculo.findOneAndDelete({ id }).select('-_id -__v').lean();
   }
 
+  // El contador se suma en un solo paso dentro de la base ($inc): dos altas al mismo tiempo
+  // nunca reciben el mismo id.
   async siguienteId() {
-    const ultimo = await Vehiculo.findOne().sort({ id: -1 }).select('id').lean();
-    return (ultimo?.id ?? 0) + 1;
+    const contador = await Contador.findOneAndUpdate(
+      { _id: 'vehiculos' },
+      { $inc: { valor: 1 } },
+      { new: true, upsert: true },
+    ).lean();
+    return contador.valor;
   }
 }
 

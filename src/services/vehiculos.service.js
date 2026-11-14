@@ -1,4 +1,4 @@
-import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
+import { esPatenteRepetida, vehiculosRepository } from '../repositories/vehiculos.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import {
   obtenerPaginacion, regexDeBusqueda, respuestaPaginada, textoDeBusqueda,
@@ -13,6 +13,7 @@ import { imagenesService } from './imagenes.service.js';
 import { validarNivelCombustible } from '../utils/combustible.js';
 
 const MAXIMO_IMAGENES_CONTROL = 4;
+const PATENTE_REPETIDA = { mensaje: 'Ya existe un vehículo con esa patente' };
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -146,11 +147,7 @@ export const vehiculosService = {
       return resultado(400, { mensaje: 'La patente es obligatoria' });
     }
     // La patente es única: se compara sin espacios, guiones ni mayúsculas ("AB 123 CD" = "ab123cd").
-    const normalizar = (patente) => String(patente ?? '').replace(/[\s-]/g, '').toUpperCase();
-    const patentes = (await vehiculosRepository.listar()).map((vehiculo) => normalizar(vehiculo.patente));
-    if (patentes.includes(normalizar(body.patente))) {
-      return resultado(400, { mensaje: 'Ya existe un vehículo con esa patente' });
-    }
+    if (await vehiculosRepository.existePatente(body.patente)) return resultado(400, PATENTE_REPETIDA);
     const errorDatos = validarDatosEditables(body);
     if (errorDatos) return resultado(400, { mensaje: errorDatos });
     const tecnicoId = body.tecnicoAsignado == null ? null : aId(body.tecnicoAsignado);
@@ -158,10 +155,17 @@ export const vehiculosService = {
       const error = await validarTecnico(tecnicoId);
       if (error) return error;
     }
-    const creado = await vehiculosRepository.crear({
-      ...elegir(body, ['patente', 'marca', 'modelo', 'kilometraje', 'seguro', 'ultimoService', 'detalle']),
-      tecnicoAsignado: tecnicoId,
-    });
+    let creado;
+    try {
+      creado = await vehiculosRepository.crear({
+        ...elegir(body, ['patente', 'marca', 'modelo', 'kilometraje', 'seguro', 'ultimoService', 'detalle']),
+        tecnicoAsignado: tecnicoId,
+      });
+    } catch (error) {
+      // Dos altas con la misma patente al mismo tiempo: la base acepta una sola.
+      if (!esPatenteRepetida(error)) throw error;
+      return resultado(400, PATENTE_REPETIDA);
+    }
     if (tecnicoId) await liberarOtrosVehiculos(tecnicoId, creado.id);
     return resultado(201, await unoConTecnico(creado));
   },

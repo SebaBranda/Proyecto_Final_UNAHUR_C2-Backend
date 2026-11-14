@@ -1,4 +1,4 @@
-import { reclamosRepository } from '../repositories/reclamos.repository.js';
+import { esEnProgresoRepetido, reclamosRepository } from '../repositories/reclamos.repository.js';
 import { clientesRepository } from '../repositories/clientes.repository.js';
 import { usuariosRepository } from '../repositories/usuarios.repository.js';
 import { vehiculosRepository } from '../repositories/vehiculos.repository.js';
@@ -7,6 +7,7 @@ import { obtenerPaginacion, respuestaPaginada } from '../utils/paginacion.js';
 import { JORNADA_INACTIVA, jornadaActivaDelTecnico } from '../utils/jornadaActiva.js';
 
 const MAXIMO_IMAGENES_RECLAMO = 5;
+const YA_TIENE_UNO_EN_PROGRESO = { mensaje: 'Finalizá el reclamo en progreso antes de comenzar otro.' };
 
 const esGestion = (usuario) => [1, 2].includes(usuario.rolId);
 const aId = (valor) => (Number.isInteger(Number(valor)) && Number(valor) > 0 ? Number(valor) : null);
@@ -265,9 +266,7 @@ export const reclamosService = {
         tecnicoId: aId(usuario.id),
         estado: 'En progreso',
       });
-      if (enProgreso > 0) {
-        return resultado(409, { mensaje: 'Finalizá el reclamo en progreso antes de comenzar otro.' });
-      }
+      if (enProgreso > 0) return resultado(409, YA_TIENE_UNO_EN_PROGRESO);
       // Comenzar es un solo paso: el control del vehículo se hace al iniciar y al finalizar la
       // jornada. El backend anota con qué vehículo se hizo el servicio (null si no tiene uno).
       const [vehiculo] = await vehiculosRepository.listar({ tecnicoAsignado: aId(usuario.id) });
@@ -295,6 +294,14 @@ export const reclamosService = {
       return resultado(400, { mensaje: 'Adjuntá al menos una imagen del trabajo para finalizar.' });
     }
     if (!Object.keys(cambios).length) return resultado(400, { mensaje: 'No hay campos modificables' });
-    return resultado(200, await unoConRelaciones(await reclamosRepository.actualizar(reclamo.id, cambios)));
+    let actualizado;
+    try {
+      actualizado = await reclamosRepository.actualizar(reclamo.id, cambios);
+    } catch (error) {
+      // Dos "comenzar" al mismo tiempo: la base deja un solo reclamo en progreso por técnico.
+      if (!esEnProgresoRepetido(error)) throw error;
+      return resultado(409, YA_TIENE_UNO_EN_PROGRESO);
+    }
+    return resultado(200, await unoConRelaciones(actualizado));
   },
 };

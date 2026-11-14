@@ -75,22 +75,39 @@ export const Rol = mongoose.model('Rol', new Schema({
 }, opcionesBase));
 
 const recursoBase = { id: { type: Number, required: true, unique: true, index: true } };
-export const Vehiculo = mongoose.model('Vehiculo', new Schema({
+
+// Los índices únicos de abajo hacen cumplir reglas del negocio en la propia base: aunque lleguen
+// dos pedidos al mismo tiempo (un doble toque), Mongo acepta uno solo.
+
+// Comparación de patentes: no distingue mayúsculas, espacios ni guiones ("AB 123 CD" = "ab-123-cd").
+export const COMPARACION_PATENTE = { locale: 'es', strength: 1, alternate: 'shifted' };
+
+const esquemaVehiculo = new Schema({
   ...recursoBase,
   patente: { type: String, required: true },
   tecnicoAsignado: { type: Number, ref: 'Usuario', default: null },
   kilometraje: { type: Schema.Types.Mixed, default: {} },
   seguro: { type: Schema.Types.Mixed, default: {} },
   controles: { type: [Schema.Types.Mixed], default: [] },
-}, opcionesBase));
+}, opcionesBase);
+// No puede haber dos vehículos con la misma patente.
+esquemaVehiculo.index({ patente: 1 }, { name: 'patente_unica', unique: true, collation: COMPARACION_PATENTE });
+export const Vehiculo = mongoose.model('Vehiculo', esquemaVehiculo);
 
-export const Reclamo = mongoose.model('Reclamo', new Schema({
+const esquemaReclamo = new Schema({
   ...recursoBase,
   clienteId: { type: Number, ref: 'Cliente', required: true, index: true },
   tecnicoId: { type: Number, ref: 'Usuario', default: null, index: true },
   estado: { type: String, default: 'Abierto' },
   creadoEn: { type: Date, default: Date.now },
-}, opcionesBase));
+}, opcionesBase);
+// Un técnico tiene como máximo un reclamo en progreso.
+esquemaReclamo.index({ tecnicoId: 1 }, {
+  name: 'un_reclamo_en_progreso_por_tecnico',
+  unique: true,
+  partialFilterExpression: { estado: 'En progreso', tecnicoId: { $type: 'number' } },
+});
+export const Reclamo = mongoose.model('Reclamo', esquemaReclamo);
 
 export const Imagen = mongoose.model('Imagen', new Schema({
   id: { type: String, required: true, unique: true, index: true },
@@ -101,7 +118,7 @@ export const Imagen = mongoose.model('Imagen', new Schema({
   creadoEn: { type: Date, default: Date.now },
 }, { versionKey: false }), 'imagenes');
 
-export const Jornada = mongoose.model('Jornada', new Schema({
+const esquemaJornada = new Schema({
   ...recursoBase,
   tecnicoId: { type: Number, ref: 'Usuario', required: true, index: true },
   activa: { type: Boolean, default: true },
@@ -109,7 +126,14 @@ export const Jornada = mongoose.model('Jornada', new Schema({
   fin: Date,
   controlInicial: Schema.Types.Mixed,
   controlFinal: Schema.Types.Mixed,
-}, opcionesBase));
+}, opcionesBase);
+// Un técnico tiene como máximo una jornada activa.
+esquemaJornada.index({ tecnicoId: 1 }, {
+  name: 'una_jornada_activa_por_tecnico',
+  unique: true,
+  partialFilterExpression: { activa: true },
+});
+export const Jornada = mongoose.model('Jornada', esquemaJornada);
 
 export const Reporte = mongoose.model('Reporte', new Schema({
   id: { type: Number, required: true, unique: true, index: true },
@@ -121,3 +145,10 @@ export const Reporte = mongoose.model('Reporte', new Schema({
   creadoEn: { type: Date, default: Date.now },
   modificadoEn: { type: Date, default: Date.now },
 }, { versionKey: false }));
+
+// Último id entregado de cada recurso (usuarios, clientes, reclamos, etc.). Cada repositorio pide
+// el siguiente con $inc en su siguienteId().
+export const Contador = mongoose.model('Contador', new Schema({
+  _id: { type: String, required: true },
+  valor: { type: Number, required: true, default: 0 },
+}, { versionKey: false }), 'contadores');
